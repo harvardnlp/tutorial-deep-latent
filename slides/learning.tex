@@ -58,7 +58,7 @@
 
 \begin{frame}
 \thetitle{Learning Deep Latent-Variable Models: Marginalization}
-Likelihood for requires summing out the latent variables,
+Likelihood requires summing out the latent variables,
     \[p(x^{} \param \theta) = \sum_{z \in \mathcal{Z}} p(x^{}, z \param \theta) \]
     (= $\int p(x, z \param \theta) dz$ if continuous $z$)\\
     \vspace{3mm}
@@ -165,7 +165,7 @@ Since KL is always non-negative, $L(\theta) \geq \ELBO(\theta, \lambda)$.
 \begin{align*}
 \log p(x \param \theta) &=\E_{q} \log p(x)  \quad  \text{\it (Expectation over $z$)} \\ \pause
 &= \E_{q} \log \frac{p(x, z)}{p(z \given x)} \quad \text{\it (Mult/div by $p(z|x)$)}\\ \pause
-&= \E_{q} \log \left( \frac{p(x, z )}{q(z\given x)} \frac{q}{p(z \given x)} \right) \quad \text{\it (Mult/div by $q(z)$)}\\ \pause
+&= \E_{q} \log \left( \frac{p(x, z )}{q(z\given x)} \frac{q(z\given x)}{p(z \given x)} \right) \quad \text{\it (Mult/div by $q(z|x)$)}\\ \pause
 &= \E_{q} \log \frac{p(x, z )}{q(z\given x )}  + \E_{q}  \log \frac{q(z \given x)}{p(z \given x )}  \quad  \text{\it (Split Log)}\\ \pause
 %&= \int q(z ) \log \frac{p(x, z \param \theta)}{q(z )} \, dz + \KL[q(z )  \, \Vert \, p(z \given x \param \theta)]  \\
 &= \alert{\E_{q}  \log \frac{p(x, z \param \theta)}{q(z\given x;\lambda )}} + \structure{\KL[q(z \given x;\lambda)  \, \Vert \, p(z \given x \param \theta)]}  \\
@@ -251,7 +251,7 @@ Since KL is always non-negative, $L(\theta) \geq \ELBO(\theta, \lambda)$.
 \end{frame}
 
 \begin{frame}
-\thetitle{Example Form of $q$ : Posterior Form}
+\thetitle{Example Form of $q$ : Full Posterior Form}
 \begin{center}
     \begin{tikzpicture}
 % nodes
@@ -284,6 +284,42 @@ Since KL is always non-negative, $L(\theta) \geq \ELBO(\theta, \lambda)$.
 $\lambda = [\lambda^{(1)}, \dots, \lambda^{(N)}]$ is a concatenation of all local variational parameters $\lambda^{(n)}$, e.g.
     \[ q(z^{(n)} \given x^{(n)} \param \lambda) = q(z^{(n)} \param \lambda^{(n)}) =   \mathcal{N}(\lambda^{(n)} , 1) \]
 \end{frame}
+
+\begin{frame}
+\thetitle{Example Form of $q$ : MAP Point Estimate Form}
+\begin{center}
+    \begin{tikzpicture}
+% nodes
+ \node[latent] (zl) {$z^{(n)}$};%
+ %\node[const, below=of zl] (xl) {$x^{(n)}$};%
+ %\node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
+ \node[const, below=of zl] (lambda) {$\lambda^{(n)}$};
+% plate
+ \plate {plate1} {(zl)(lambda)} {$N$}; %
+ \edge{lambda}{zl};
+ 
+ \begin{scope}[xshift=5cm]
+%\node (dots) {$\ldots$};%
+ %\node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
+ \node[latent] (z) {$z^{(n)}$}; %
+ \node[obs, below=of z] (x1) {$x^{(n)}$};%
+% \node[const, above=of z] (mu) {$\bmu$};
+ \node[const, right= of x1] (pi) {$\theta$};
+ 
+% plate
+ \plate {plate1} {(x1)(z)} {$N$}; %
+% edges
+ \edge {z} {x1};
+ %\edge {mu} {z};
+ \edge {pi} {x1, z};
+ \end{scope}
+ \draw[dashed] (zl) --node [yshift=0.2cm] {$\KL(q(z \given x) || p(z \given x))$} (z);
+\end{tikzpicture}
+\end{center}
+$\lambda = [\lambda^{(1)}, \dots, \lambda^{(N)}]$ is a concatenation of all local variational parameters $\lambda^{(n)}$, e.g.
+    \[ q(z^{(n)} \given x^{(n)} \param \lambda) = q(z^{(n)} \param \lambda^{(n)}) =   \mathcal{N}(\lambda^{(n)} , 1) \]
+\end{frame}
+
 
 \begin{frame}
 \thetitle{Example Form of $q$: Amortized Parameterization}
