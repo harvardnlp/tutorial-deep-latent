@@ -1,0 +1,250 @@
+
+\subsection{Goals}
+
+\begin{frame}{}
+\thetitle{Goal of \underline{Latent-Variable} Modeling}
+    Probabilistic models provide a declarative language for specifying 
+    prior knowledge and structural relationships in the context of unknown variables.
+    \vspace{0.5cm}
+    \pause 
+    
+    Makes it easy to specify:
+    \begin{itemize}
+        \item Known interactions in the data
+        \item Uncertainty about unknown factors
+        \item Constraints on model properties
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{}
+\thetitle{Latent-Variable Modeling in NLP}
+    Long and rich history of latent-variable models of natural language. 
+    \vspace{0.5cm}
+        
+    Major successes include, among many others:
+    \begin{itemize}
+        \item Statistical alignment for translation \cite{} 
+        \item Document clustering and topic modeling \cite{}  
+        \item Unsupervised part-of-speech tagging and parsing \cite{}
+    \end{itemize}
+    \air 
+    
+\end{frame}
+
+
+\begin{frame}{}
+\thetitle{Goals of \underline{Deep Learning}}
+    Toolbox of methods for learning rich, non-linear 
+    data representations through numerical optimization. 
+    \vspace{0.5cm}
+    
+    \pause 
+    Makes it easy to fit:
+    \begin{itemize}
+        \item Highly-flexible predictive models 
+        \item Transferable feature representations 
+        \item Structurally-aligned network architectures 
+    \end{itemize}
+    
+\end{frame}
+
+\begin{frame}
+\thetitle{Deep Learning in NLP}
+    Current dominant paradigm for NLP.
+    \vspace{0.5cm}
+
+    Major successes include, among many others:
+    \begin{itemize}
+        \item Text classification  \cite{}  
+        \item Neural machine translation \cite{} 
+        \item NLU Tasks (QA, NLI, etc) \cite{}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{}
+\thetitle{Tutorial: Deep Latent-Variable Models for NLP}
+    \begin{itemize}
+        \item 
+
+    How should a contemporary ML/NLP researcher reason about these two methodologies?
+    \vspace{0.5cm}
+
+        \item 
+   
+    What unique challenges come from modeling text with latent variable models?   
+
+    \vspace{0.5cm}
+
+        \item 
+   
+    What techniques have been explored and shown to be effective in recent papers? 
+    \end{itemize}
+ 
+
+   
+    %Two complementary and intersecting ideas:
+    %\begin{enumerate}
+    %    \item Inference in deep latent-variable models
+    %    \air 
+    %    \item Deep learning-based inference for latent variable models
+    %\end{enumerate}
+    %\vspace{0.5cm}
+    \pause
+    \air
+    
+    We explore these through the lens of \textit{variational inference}.    
+    %This tutorial focuses on variational inference in both settings.
+\end{frame}
+
+
+\begin{frame}{}
+\thetitle{Tutorial Take-Aways}
+
+
+
+ \begin{enumerate}
+    \item A collection of deep latent-variable \structure{models} for NLP
+    \air
+    
+    \item An understanding of a \structure{variational} objective
+    \air
+    
+    \item A toolkit of algorithms for \structure{optimization}
+    
+    \air
+    \item A formal guide to \structure{advanced} techniques
+    \air 
+        
+    \item A survey of example \structure{applications}
+    \air
+    
+    \item Code samples and techniques for \structure{practical} use
+ \end{enumerate}
+    
+\end{frame}
+
+\begin{frame}{}
+\thetitle{Tutorial Non-Objectives}
+    Not covered (for time, not relevance):
+    \begin{itemize}
+        \item Many classical latent-variable approaches.
+            \air
+            
+        \item Non-likelihood based models such as GANs
+            \air
+        
+        \item Sampling-based inference such as MCMC.
+            \air 
+
+        \item Details of deep learning architectures.
+    \end{itemize}
+\end{frame}
+
+
+\subsection{Background}
+
+\begin{frame}
+\thetitle{What are deep networks?}
+Deep networks are parameterized non-linear functions. 
+\air 
+
+They transform input $\boldz$ into features $\boldh$ 
+using parameters $\theta$. 
+
+\pause
+
+\vspace{0.5cm}
+Important examples include the multilayer perceptron,
+\begin{align*}
+\boldh = \MLP(\boldz \param \theta) = \boldV \sigma (\boldW  \boldz + \boldb) + \bolda \ \ \ \ \  \theta = \{ \boldV, \boldW,  \bolda, \boldb\},
+\end{align*}
+
+\pause 
+and the recurrent neural network, which maps a sequence of inputs $\boldz_{1:T}$ into a sequence of features $\boldh_{1:T}$,
+\begin{align*}
+\boldh_{t} =  \RNN(\boldh_{t-1}, \boldz_t \param \theta) = \sigma (\boldU  \boldz_t + \boldV \boldh_{t-1} + \boldb)
+%\theta = \{ \boldW, \boldV, \boldU, \boldb\}$
+%\softmax (\boldW \boldh_t),
+\end{align*}
+where $ \theta = \{ \boldV, \boldU, \boldb\}$.
+
+% \begin{align*}
+% \boldh_t = \RNN(\boldz_t, \boldh_{t-1} \param \theta) = \sigma (\boldW  \boldz_t + \boldV \boldh_{t-1} + \boldb) \ \ \\  \theta = \{ \boldV, \boldW, \boldb\}.
+% \end{align*}
+\end{frame}
+
+
+\begin{frame}
+\thetitle{What are latent variable models?}
+
+Latent variable models give us a joint distribution
+\begin{align*}
+p(x, z \param \theta).
+\end{align*}
+
+\pause
+\begin{itemize}
+    \item $x$ is our observed data
+    \item $z$ is a collection of latent variables
+    \item $\theta$ are the deterministic parameters of the model, such as the neural network parameters
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+    \thetitle{Probabilistic Graphical Models}
+    
+    \begin{itemize}
+        %\item $\Delta^{K-1}$ is the simplex over $K$ items, informally the space of distributions of $K$ discrete choices
+        %\item $\softmax: \reals^t \mapsto \Delta^{k-1}$ is the mapping to the simplex defined by $\softmax(\boldh)_k \propto \exp(\boldh_k)$
+        \item A directed PGM is a directed acyclic graph representation of conditional independence structure. 
+        \item  By the chain rule, any  latent variable models $p(x, z \param \theta)$ can be represented as, 
+        \begin{figure}
+        \centering
+        \begin{tikzpicture}
+          %\tikz{
+        % nodes
+         \node[obs] (x1) {$x^{(n)}$};%
+         \node[latent, above = of x1] (z) {$z^{(n)}$}; %
+         %\node[const, above=of z] (mu) {$\bmu$};
+         \node[const, left = of z] (pi) {$\theta$};
+         \plate {plate1} {(x1)(z)} {$N$}; %
+         \edge {z} {x1};
+         \edge {pi.east} {x1};
+         \edge {pi.east} {z};
+
+         %}
+         
+         \end{tikzpicture}
+                \[ p(x^{(1:N)}, z^{(1:N)}) = \prod_{n=1}^N p(x^{(n)} | z^{(n)}; \theta) p(z^{(n)};\theta) \]
+ 
+         \end{figure}
+                 \item Specific models may factor further.
+
+    \end{itemize}
+        
+
+\end{frame}
+
+
+
+\begin{frame}
+    \thetitle{Problem Statement: Two Views}
+
+    Deep Models \& LV Models are naturally \structure{complementary}:
+    
+    \begin{itemize}
+        \item Rich function approximators with modular parts.
+        \item Declarative methods for specifying model constraints.
+    \end{itemize}
+
+    \vspace{0.5cm}
+    \pause
+
+    Deep Models \& LV Models are frustratingly \alert{incompatible}:
+
+    \begin{itemize}
+        \item Deep networks make posterior inference intractable.  
+        \item Latent variable objectives complicate backpropagation.
+    \end{itemize}
+    
+\end{frame}

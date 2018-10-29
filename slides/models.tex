@@ -1,0 +1,671 @@
+
+
+\begin{frame}
+\thetitle{A Language Model}
+    Our goal is to model a sentence, $x_1 \ldots x_T$.
+    
+    \air 
+    Context: RNN language models are remarkable at this task,
+    \[ x_{1: T}&\sim  \RNNLM(x_{1:T}; \theta). \]
+     
+    Defined as, 
+    \begin{eqnarray*}
+     p(x_{1:T})  &= \displaystyle \prod_{t=1}^T p(x_t \given x_{<t}) =  \displaystyle \prod_{t=1}^T \softmax(\boldW \RNN(\boldh_t, \boldx_t;\theta))
+    \end{eqnarray*}
+    % \[ p(x_{1:T})  = \prod_{t=1}^T p(x_t \given x_{<t}) = \prod_{t=1}^T \softmax(\RNN(\boldh_{t-1}, x_t;\theta)). \]
+\begin{center}
+\begin{tikzpicture}
+% nodes
+\node (dots) {$\ldots$};%
+ \node[obs, left=1cm of dots] (x1) {$x_1^{(n)}$};%
+ \node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
+ \node[const, below=1cm of dots] (pi) {$\theta$};
+ 
+% plate
+ \plate {plate1} {(dots)(x1)(xT)} {$N$}; %
+% edges
+ \edge {x1} {dots};
+ %\edge[bend left] {x1.south} {xT.south};
+  \edge {dots} {xT};
+ \edge {pi} {x1,xT.south};
+
+ \draw[->] 
+ (x1) edge[bend right] node [right] {} (xT);
+ %\draw[->]
+ %(dots) edge[bend right] node [right] {} (xT);
+ 
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+%\begin{frame}
+%\thetitle{What if your goal is not just model fit?}
+
+%Other aims:
+%\begin{itemize}
+%    \item Small data, low parameter
+%    \item Interpretable models
+%    \item Structure estimation
+%\end{itemize}
+%\pause
+%This section: Three deep latent variable alternatives
+%\begin{itemize}
+%    \item Discrete Variables
+%    \item Continuous Variables
+%    \item Structured Variables
+%\end{itemize}
+%
+%\end{frame}
+
+\begin{frame}
+    \thetitle{A Collection of Model Archetypes}
+    Focus: semi-supervised or unsupervised learning, i.e. don't just learn the probabilities, but the process.
+    \vspace{0.5cm}
+    
+    Range of choices in selecting $z$ 
+    \begin{enumerate}
+        \item Discrete LVs $z$ (``Clustering'')
+        \item Continuous LVs $z$ (``Dimensionality reduction'')
+        \item Structured LVs $z$ (``Structured prediction'')
+    \end{enumerate}
+    We consider one classical / one deep model for each.
+    
+    
+    \vspace{0.5cm}
+    Main goal will be posterior inference / Bayes rule.
+    \[ p(z \param x ) \propto p(z; \theta) p(x \given z ;\theta) \]
+\end{frame}
+
+\subsection{Discrete Models}
+\begin{frame}
+\thetitle{Model 1: Discrete - Clustering}
+
+\begin{center}
+\begin{tikzpicture}
+% nodes
+\node[draw, text width=5cm, rounded corners] (x1) {\footnotesize In an old house in Paris that was covered with vines lived twelve little girls in two straight lines.};%
+
+\node[draw, right=of x1, rounded corners] (x3) {Cluster 23};%
+\draw[->] (x1) -- (x3);
+\end{tikzpicture}
+\end{center}
+
+
+
+Categorical latent variable models induce a clustering over sentences $x^{(n)}$
+
+ \begin{itemize}
+     \item Document/sentence clustering~\citep{willett1988recent,aggarwal2012survey}.
+     \item Mixture of expert text generation models~\citep{jacobs1991adaptive,garmash2016ensemble,lee2016stochastic}
+ \end{itemize}
+
+\end{frame}
+
+\begin{frame}
+\thetitle{Model 1: Discrete - Mixture of Multinomials}
+
+\vspace{0.25cm}
+
+Generative process: 
+\begin{enumerate}
+\item Draw cluster $z \in \{1, \ldots, K\}$ from a Categorical with param $\mu$.
+\item For each $t$, draw word $x_t$ from Categorical with word distribution $\pi_{z}$.
+\end{enumerate}
+\air
+Parameters: $\theta = \{\mu, \pi\}$
+
+\air
+
+
+
+Gives rise to the "Naive Bayes" distribution:
+\begin{align*}
+     p(x, z \param \theta) = p(z \param \mu) \times p(x \given z \param \pi) = \mu_{z} \times  \prod_{t=1}^T \pi_{z, x_t}
+\end{align*}
+\end{frame}
+
+
+\begin{frame}
+\thetitle{Model 1: Graphical Model View}
+
+%\scalebox{0.75}{
+\begin{center}
+
+\begin{tikzpicture}
+  %\tikz{
+% nodes
+\node (dots) {$\ldots$};%
+ \node[obs, left=1cm of dots] (x1) {$x_1^{(n)}$};%
+ \node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
+ \node[latent, above=of dots] (z) {$z^{(n)}$}; %
+ \node[const, above=(0.5 cm) of z] (mu) {$\mu$};
+ \node[const, below left=0.3cm and 0.8cm of x1] (pi) {$\pi$};
+ 
+% plate
+ \plate {plate1} {(dots)(x1)(xT)(z)} {$N$}; %
+% edges
+ \edge {z} {dots};
+ \edge {z} {x1};
+ \edge {z} {xT};
+ \edge {mu} {z};
+ \edge {pi.east} {x1,xT};
+ %}
+ \end{tikzpicture}
+ %}
+\end{center}
+
+\air
+\air
+
+\begin{align*}
+     \prod_{n=1}^N p(x^{(n)}, z^{(n)} \param \mu, \pi) &= \prod_{n=1}^N p(z^{(n)} \param \mu) \times p(x^{(n)} \given z^{(n)} \param \pi) \\
+     &= \prod_{n=1}^N \mu_{z^{(n)}}   \prod_{t=1}^T \pi_{z^{(n)},  x^{(n)}_t}
+\end{align*}
+\end{frame}
+
+
+
+
+
+\begin{frame}
+\thetitle{Deep Model 1: Discrete - Mixture of RNNs}
+
+Generative process: 
+\begin{enumerate}
+\item Draw cluster $z \in \{1, \ldots, K\}$ from a Categorical.
+\item Draw words $x_{1:T}$ from RNNLM with parameters $\pi_z$.
+\end{enumerate}
+\[p(x, z \param \theta) 
+       = \mu_{z} \times   \RNNLM(x_{1:T} \param \pi_z) \]
+% \[p(x, z \param \theta) 
+%       = \mu_{z} \times  \prod_{t=1}^T \softmax(\RNN(\boldh_{t-1}, x_t\param \pi_z))\]
+\begin{center}
+
+\begin{tikzpicture}
+  %\tikz{
+% nodes
+\node (dots) {$\ldots$};%
+ \node[obs, left=1cm of dots] (x1) {$x_1^{(n)}$};%
+ \node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
+ \node[latent, above=of dots] (z) {$z^{(n)}$}; %
+ \node[const, above=(0.5cm) of z] (mu) {$\mu$};
+ \node[const, below left=0.3cm and 0.8cm of x1] (pi) {$\pi$};
+ 
+% plate
+ \plate {plate1} {(dots)(x1)(xT)(z)} {$N$}; %
+% edges
+ \edge {z} {dots};
+ \edge {z} {x1};
+ \edge {z} {xT};
+ \edge {mu} {z};
+ \edge {pi.east} {x1,xT.south};
+ \edge {x1} {dots};
+ %\edge[bend left] {x1.south} {xT.south};
+  \edge {dots} {xT};
+
+ \draw[->] 
+ (x1) edge[bend right=10] node [right] {} (xT);
+ %}
+ \end{tikzpicture}
+ %}
+\end{center}
+%\begin{align*}
+%\boldh_{z,t} &= \tanh(\mathbf{W}_z \bolde_t +\mathbf{U}_z\boldh_{z,t-1}  + \boldb_{z}) \nonumber \\
+%p(x_{t} \given x_{<t} , z) &= \softmax(\mathbf{V} \boldh_{z,t-1} + \boldc)_{x_{t}} \nonumber \\
+%p(x_1, \ldots, x_T \given z) &= \prod_{t=1}^{T} p(x_{t} \given x_{<t} , z) 
+%\end{align*}
+
+\pause
+\air
+\air
+\air
+
+\end{frame}
+
+
+\begin{frame}
+\thetitle{Not so Naive, Still a bit Bayes}
+Note the difference in the number of token parameters: 
+\begin{itemize}
+    \item Order $K \times V $ Categorical parameters.
+    \item Order $K \times d^2 + V \times d$ with RNN with $d$ hidden dims
+\end{itemize}
+
+\vspace{0.5cm}
+
+Bayes Rule still possible, but requires more work,
+\begin{itemize}
+    \item Posterior requires running all $K$ RNNs: \[p(z \given x) \propto \mu_{z} \times \displaystyle \RNNLM(x_{1:T} \param \pi_z) \]
+% \[p(z \given x) \propto \mu_{z} \times \displaystyle \prod_{t=1}^T \softmax(\RNN(\boldh_{t-1}, x_t\param \pi_z))\]    
+\end{itemize}
+
+    
+\end{frame}
+
+% \begin{frame}
+% \thetitle{Making the Model ``Deep'' II}
+% Rather than generate tokens, generate \textit{embeddings} of tokens:
+
+
+% Parameterize the token distribution with neural components \textit{and} generate embeddings, rather than discrete objects:
+
+
+% \pause
+% \air
+% \air
+% \air
+
+% Note the difference in the number of token parameters: 
+% \begin{itemize}
+%     \item $K \times V \times T$ under Naive Bayes 
+%     \item $K \times d(2d+1) + V \times (d+1)$ with RNN if $\boldh_t, \bolde_t \in \reals^d$
+% \end{itemize}
+% \end{frame}
+
+\subsection{Continuous Models}
+
+\begin{frame}
+\thetitle{Model 2: Continuous - Dimensionality Reduction}
+
+\begin{center}
+\begin{tikzpicture}
+% nodes
+\node[draw, text width=5cm, rounded corners] (x1) {\footnotesize In an old house in Paris that was covered with vines lived twelve little girls in two straight lines.};%
+
+\begin{scope}[xshift=5cm]
+\draw (-1, 0) -- (1, 0);
+\draw (0, -1) -- (0, 1);
+\draw (0.5, 0.5) circle (0.05);
+\end{scope}
+
+\node[draw=white, right=of x1, rounded corners] (x3) {};%
+
+\draw[->] (x1) -- (x3);
+
+\end{tikzpicture}
+\end{center}
+
+Find a lower-dimensional, well-behaved  continuous representation of a sentence.
+\air 
+
+Latent variables in $\reals^d$ make distance/similarity easy. 
+
+\begin{itemize}
+    \item Certain sentence embeddings (e.g., Skip-Thought vectors~\citep{kiros2015skip}) can be interpreted in this way.
+\end{itemize}
+
+\pause
+Continuous-value more convenient from a VAE perspective:
+\begin{itemize}
+    \item Recent work in text generation assumes a latent vector per sentence~\citep{Bowman2016,Yang2017,hu2017toward}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\thetitle{Model 2: Continuous - Sentence Topic Model}
+\vspace{0.25cm}
+
+Generative Process:
+\begin{enumerate}
+    \item Draw continuous latent variable $\boldz$ from Dirichlet with param $\alpha$.
+    \item For each $t$, draw word $x_t$ from Categorical with param $z$.
+\end{enumerate}
+\air
+
+Parameters: $\theta= \{\alpha\}$
+
+\air
+
+Intuition: $\alpha$ is the distribution over words generally, $\boldz$ captures the topical word distribution of the sentence. 
+\end{frame}
+
+\begin{frame}
+\thetitle{Graphical Model View}
+
+%\scalebox{0.75}{
+\begin{center}
+
+\begin{tikzpicture}
+  %\tikz{
+% nodes
+\node (dots) {$\ldots$};%
+ \node[obs, left=1cm of dots] (x1) {$x_1^{(n)}$};%
+ \node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
+ \node[latent, above=of dots] (z) {$z^{(n)}$}; %
+ \node[const, above=of z] (mu) {$\alpha$};
+ %\node[const, below left=0.3cm and 0.8cm of x1] (pi) {$\theta$};
+% plate
+ \plate {plate1} {(dots)(x1)(xT)(z)} {$N$}; %
+% edges
+ \edge {z} {dots};
+ \edge {z} {x1};
+ \edge {z} {xT};
+ \edge {mu} {z};
+ %\edge {pi.east} {x1,xT};
+ %}
+ \end{tikzpicture}
+ %}
+\end{center}
+
+\air
+\air
+
+Gives rise to the joint distribution:
+\begin{align*}
+     \prod_{n=1}^N p(x^{(n)}, z^{(n)} \param \alpha) &= \prod_{n=1}^N p(z^{(n)} \param \alpha) \times p(x^{(n)} \given z^{(n)} ) \\
+     &= \prod_{n=1}^N \prod_{v=1}^V  (z^{(n)})^{\alpha_v + \sum_{t=1}^T  1(x^{(n)}_t = v)}  \\
+     \end{align*}
+\end{frame}
+
+
+\begin{frame}
+\thetitle{Deep Model 2: Continuous - Topic Latent}
+Generative Process:
+
+\begin{enumerate}
+    \item Draw latent variable $\boldz \sim \mcN(\bmu, \bSigma)$.
+    \item Draw each token $x_t$ from a conditional RNNLM. 
+\end{enumerate}
+
+
+RNN is also conditioned on latent $\boldz$,  
+\begin{align*}
+     & p(x, \boldz \param \pi, \bmu, \bSigma)  = p(\boldz \param \bmu, \bSigma) \times p(x \given \boldz \param \pi) \\ 
+      &  = \mcN(\boldz \param \bmu, \bSigma)  \times \RNNLM(\boldx_{1:T}  \param \pi,  \boldz)
+    %   &  = \mcN(z\param \mu, \Sigma)  \prod_{t=1}^T \softmax(\RNN(\boldh_{t-1}, \MLP([x_t, z]); \pi))      
+\end{align*}
+
+where 
+\[ \RNNLM(\boldx_{1:T}  \param \pi,  \boldz) = \prod_{t=1}^T \softmax(\boldW \RNN(\boldh_{t-1}, [x_t, z]; \pi)) \]
+
+\end{frame}
+
+\begin{frame}
+\thetitle{Graphical Model View}
+
+\begin{center}
+\begin{tikzpicture}
+% nodes
+\node (dots) {$\ldots$};%
+ \node[obs, left=1cm of dots] (x1) {$x_1^{(n)}$};%
+ \node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
+ \node[latent, above=of dots] (z) {$\boldz^{(n)}$}; %
+ \node[const, above left=1cm and 0.25cm of z] (mu) {$\bmu$};
+ \node[const, above right=1cm and 0.25cm of z] (sigma) {$\bSigma$};
+ \node[const, below left=0.6cm and 0.6cm of x1] (pi) {$\pi$};
+ 
+% plate
+ \plate {plate1} {(dots)(x1)(xT)(z)} {$N$}; %
+% edges
+ \edge {z} {dots};
+ \edge {z} {x1};
+ \edge {z} {xT};
+ \edge {mu} {z};
+ \edge {sigma} {z};
+ \edge {x1} {dots};
+ %\edge[bend left] {x1.south} {xT.south};
+  \edge {dots} {xT};
+ \edge {pi.east} {x1,xT.south};
+ 
+ \draw[->] 
+ (x1) edge[bend right] node [right] {} (xT);
+ %\draw[->]
+ %(dots) edge[bend right] node [right] {} (xT);
+ 
+\end{tikzpicture}
+\end{center}
+    
+\end{frame}
+
+
+
+\subsection{Structured Models}
+
+\begin{frame}
+\thetitle{Model 3: Structured Prediction}
+\begin{center}
+\begin{tikzpicture}
+% nodes
+\node[draw, text width=5cm, rounded corners] (x1) {\footnotesize In an old house in Paris that was covered with vines lived twelve little girls in two straight lines.};%
+
+\begin{scope}[xshift=5cm]
+\draw (0, 1) -- (0.5, 0.5);
+\draw (0, 1) -- (-0.5, 0.5);
+\draw (-0.75, 0) -- (-0.5, 0.5);
+\draw (-0.25, 0) -- (-0.5, 0.5);
+
+%\draw () -- (-0.5, 0.5);
+
+\end{scope}
+
+\node[draw=white, right=of x1, rounded corners] (x3) {};%
+
+\draw[->] (x1) -- (x3);
+
+\end{tikzpicture}
+\end{center}
+
+
+Structured latent variable models are often used when we would like to infer unannotated structure:
+
+\begin{itemize}
+    \item Unsupervised POS tagging~\citep{brown1992class,merialdo1994tagging,smith2005contrastive}
+    \item Unsupervised dependency parsing~\citep{klein2004corpus,headden2009improving}
+\end{itemize}
+
+
+Or when structure is useful for \textit{interpreting} our data:
+\begin{itemize}
+    \item Segmentation of documents into topical passages~\citep{hearst1997texttiling}
+    \item Alignment~\citep{vogel1996hmm}
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\thetitle{Model 3: Structured - Hidden Markov Model}
+Generative Process:
+
+\begin{enumerate}
+    \item For each $t$, draw $z_t \in \{1, \ldots, K\}$ from a Categorical with param $\mu_{z_{t-1}}$.
+    \item Draw observed token $x_t$ from Categorical with param $\pi_{z_{t}}$.
+\end{enumerate}
+\air
+Parameters: $\theta = \{ \mu, \pi\}$
+\air
+
+\pause
+Gives rise to the joint distribution:
+\begin{alignat*}{2}
+    p(x, z; \ \theta)  &= \prod_{t=1}^T p(z_t \given z_{t-1} ; \ \mu_{z_{t-1}}) &&\times \prod_{t=1}^T p(x_t \given z_{t} ; \ \pi_{z_{t}}) \nonumber \\ 
+    &= \prod_{t=1}^T \mu_{z_{t-1}, z_t} &&\times \prod_{t=1}^T \pi_{z_{t}, x_t}
+\end{alignat*}
+
+\end{frame}
+
+
+\begin{frame}
+\thetitle{Graphical Model View}
+\begin{center}
+%\scalebox{0.8}{
+\begin{tikzpicture}
+  %\tikz{
+% nodes
+ \node[obs] (x1) {$x_1$};
+ 
+ \node[obs, right=1cm of x1] (x2) {$x_2$};%
+ \node[obs, right=1cm of x2] (x3) {$x_3$};%
+ \node[obs, right=1cm of x3] (x4) {$x_4$};%
+ \node[latent, above=of x1] (z1) {$z_1$}; %
+ \node[latent, above=of x2] (z2) {$z_2$}; %
+ \node[latent, above=of x3] (z3) {$z_3$}; %
+ \node[latent, above=of x4] (z4) {$z_4$}; %
+  \node[const, above left=0.5cm and 0.25cm of z3] (mu) {$\mu$};
+  \node[const, below left=0.75cm and 0.25cm of x3] (theta) {$\pi$};
+
+ %\node[const, above left=1cm and 0.5cm of z3] (A) {$\boldA$};
+ %\node[const, below left=1cm and 0.5cm of x3] (B) {$\boldB$};
+ 
+% edges
+
+ \edge {mu} {z1,z2,z3,z4};
+ \edge {z1} {x1,z2};
+ \edge {z2} {x2,z3};
+ \edge {z3} {x3,z4};
+ \edge {z4} {x4};
+ \edge {theta} {x1,x2,x3,x4};
+
+ %\edge {A}{z1,z2,z3,z4};
+ %\edge {B}{x1,x2,x3,x4};
+ %}
+ \plate {plate1} {(x1)(x2)(x3)(x4)(z1)(z2)(z3)(z4)} {$N$}; %
+ \end{tikzpicture}
+ %}
+\end{center} 
+
+\begin{alignat*}{2}
+    p(x, z; \ \theta)  &= \prod_{t=1}^T p(z_t \given z_{t-1} ; \ \mu_{z_{t-1}}) &&\times \prod_{t=1}^T p(x_t \given z_{t} ; \ \pi_{z_{t}}) \nonumber \\ 
+    &= \prod_{t=1}^T \mu_{z_{t-1}, z_t} &&\times \prod_{t=1}^T \pi_{z_{t}, x_t}
+\end{alignat*}
+
+\end{frame}
+
+\begin{frame}
+\thetitle{Further Extension: Factorial HMM}
+A variety of important extended versions. 
+
+\begin{center}
+%\scalebox{0.8}{
+\begin{tikzpicture}
+  %\tikz{
+% nodes
+ \node[obs] (x1) {$x_1$};
+  \node[obs, right=1cm of x1] (x2) {$x_2$};%
+ \node[obs, right=1cm of x2] (x3) {$x_3$};%
+ \node[obs, right=1cm of x3] (x4) {$x_4$};%
+
+ \node[latent, above=5mm of x1] (z1) {$z_{1,1}$}; %
+ \node[latent, above=5mm of x2] (z2) {$z_{1,2}$}; %
+ \node[latent, above=5mm of x3] (z3) {$z_{1,3}$}; %
+ \node[latent, above=5mm of x4] (z4) {$z_{1,4}$}; %
+  \node[latent, above=5mm of z1] (k1) {$z_{2,1}$}; %
+ \node[latent, above=5mm of z2] (k2) {$z_{2,2}$}; %
+ \node[latent, above=5mm of z3] (k3) {$z_{2,3}$}; %
+ \node[latent, above=5mm of z4] (k4) {$z_{2,4}$}; %
+   \node[latent, above=5mm of k1] (j1) {$z_{3,1}$}; %
+ \node[latent, above=5mm of k2] (j2) {$z_{3,2}$}; %
+ \node[latent, above=5mm of k3] (j3) {$z_{3,3}$}; %
+ \node[latent, above=5mm of k4] (j4) {$z_{3,4}$}; %
+%   \node[const, above left=1cm and 0.25cm of z3] (theta2) {$\theta$};
+%   \node[const, below left=1cm and 0.25cm of x3] (theta) {$\theta$};
+
+ %\node[const, above left=1cm and 0.5cm of z3] (A) {$\boldA$};
+ %\node[const, below left=1cm and 0.5cm of x3] (B) {$\boldB$};
+ 
+% edges
+
+%  \edge {theta2} {z1,z2,z3,z4};
+ \edge {z1} {x1,z2};
+ \edge {z2} {x2,z3};
+ \edge {z3} {x3,z4};
+ \edge {z4} {x4};
+  \edge {k1}{k2};
+ \edge {k2} {k3};
+ \edge {k3} {k4};
+  \edge {j1}{j2};
+ \edge {j2} {j3};
+ \edge {j3} {j4};
+ \draw[->] (k4) to[bend left=30] (x4);
+ \draw[->] (k3) to[bend left=30] (x3);
+ \draw[->] (k2) to[bend left=30] (x2);
+ \draw[->] (k1) to[bend left=30] (x1);
+  \draw[->] (j4) to[bend left=30] (x4);
+ \draw[->] (j3) to[bend left=30] (x3);
+ \draw[->] (j2) to[bend left=30] (x2);
+ \draw[->] (j1) to[bend left=30] (x1);
+%  \edge {theta} {x1,x2,x3,x4};
+
+ %\edge {A}{z1,z2,z3,z4};
+ %\edge {B}{x1,x2,x3,x4};
+ %}
+ \plate {plate1} {(x1)(x2)(x3)(x4)(z1)(z2)(z3)(z4)(k1)(k2)(k3)(k4)(j1)(j2)(j3)(j4)} {$N$}; %
+ \end{tikzpicture}
+ %}
+\end{center} 
+
+\begin{alignat*}{2}
+    p(x, z; \ \theta)  &= \prod_{l=1}^L \prod_{t=1}^T p(z_{l,t} \given  z_{l, t-1}) &&\times \prod_{t=1}^T p(x_t \given z_{1:L, t}) \nonumber \\ 
+\end{alignat*}
+
+\end{frame}
+
+
+
+\begin{frame}
+\thetitle{Deep Model 3: Deep HMM}
+Parameterize transition and emission distributions with neural networks (c.f., \citet{tran2016})
+
+\air
+\begin{itemize}
+    \item Model transition distribution as
+    \begin{align*}
+p(z_t \given z_{t-1}) = \softmax(\MLP(z_{t-1} \param \mu)) 
+\end{align*}
+\item Model emission distribution as 
+\begin{align*}
+p(x_t \given z_{t}) = \softmax(\MLP(z_t \param \pi))
+\end{align*}    
+\end{itemize}
+
+\air
+\pause
+
+\textbf{Note:} $K \times K$ transition parameters for standard HMM vs. $O(K \times d + d^2)$ for deep version.    
+\end{frame}
+
+
+
+\begin{frame}
+\thetitle{Graphical Model View}
+\begin{center}
+%\scalebox{0.8}{
+\begin{tikzpicture}
+  %\tikz{
+% nodes
+ \node[obs] (x1) {$x_1$};
+ 
+ \node[obs, right=1cm of x1] (x2) {$x_2$};%
+ \node[obs, right=1cm of x2] (x3) {$x_3$};%
+ \node[obs, right=1cm of x3] (x4) {$x_4$};%
+ \node[latent, above=of x1] (z1) {$z_1$}; %
+ \node[latent, above=of x2] (z2) {$z_2$}; %
+ \node[latent, above=of x3] (z3) {$z_3$}; %
+ \node[latent, above=of x4] (z4) {$z_4$}; %
+  \node[const, above left=0.5cm and 0.25cm of z3] (mu) {$\mu$};
+  \node[const, below left=0.75cm and 0.25cm of x3] (theta) {$\pi$};
+
+ %\node[const, above left=1cm and 0.5cm of z3] (A) {$\boldA$};
+ %\node[const, below left=1cm and 0.5cm of x3] (B) {$\boldB$};
+ 
+% edges
+
+ \edge {mu} {z1,z2,z3,z4};
+ \edge {z1} {x1,z2};
+ \edge {z2} {x2,z3};
+ \edge {z3} {x3,z4};
+ \edge {z4} {x4};
+ \edge {theta} {x1,x2,x3,x4};
+
+ %\edge {A}{z1,z2,z3,z4};
+ %\edge {B}{x1,x2,x3,x4};
+ %}
+ \plate {plate1} {(x1)(x2)(x3)(x4)(z1)(z2)(z3)(z4)} {$N$}; %
+ \end{tikzpicture}
+ %}
+\end{center} 
+
+\begin{alignat*}{2}
+    p(x, z; \ \theta)  &= \prod_{t=1}^T p(z_t \given z_{t-1} ; \ \mu_{z_{t-1}}) &&\times \prod_{t=1}^T p(x_t \given z_{t} ; \ \pi_{z_{t}}) \nonumber \\ 
+    &= \prod_{t=1}^T \mu_{z_{t-1}, z_t} &&\times \prod_{t=1}^T \pi_{z_{t}, x_t}
+\end{alignat*}
+
+\end{frame}

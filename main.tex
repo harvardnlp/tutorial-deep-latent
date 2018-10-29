@@ -1,0 +1,1123 @@
+\documentclass{article}
+\usepackage[top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm]{geometry}
+\usepackage{common}
+
+%\usepackage{hyperref}
+\usepackage[%dvipdfm, 
+bookmarks, colorlinks, breaklinks, 
+]{hyperref}  
+\hypersetup{linkcolor=darkmidnightblue,citecolor=darkmidnightblue,filecolor=darkmidnightblue,urlcolor=darkmidnightblue} 
+
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsmath,textcomp,amssymb,geometry,graphicx,enumerate}
+\usepackage{algorithm}
+\usepackage{stmaryrd}
+\usepackage{parskip}
+\usepackage{tikz}
+\usepackage{natbib}
+%\usepackage{caption}
+\usetikzlibrary{fit,positioning}
+\usetikzlibrary{bayesnet}
+\usetikzlibrary{arrows}
+%\usepackage{subfig}
+
+
+%\usepackage[backend=biber]{biblatex}
+%\bibliography{master}
+\begin{document}
+\definecolor{darkmidnightblue}{rgb}{0.0, 0.25, 0.45}
+\title{ \Large A Tutorial on Deep Latent Variable Models of Natural Language} 
+\author{}
+\date{}
+\maketitle
+
+\section{Introduction}
+When people say ``deep latent variable'' models, they usually mean either (1) that we're using distributions parameterized by deep neural networks, or (2) that we're using neural networks to do latent variable inference. For the purpose of concreteness, we will begin with the first category, and in particular we will present several prototypical latent variable models that employ neural networks in parameterizing various distributions. These prototypical models will differ in terms of whether the latent variable is discrete or continuous, whether it is possible to do inference over these latent variables tractably or not, and whether the latent variables are ``structured.'' Throughout, we will assume the following notation:
+
+\begin{itemize}
+\item $x$: an observation, usually a sequence of tokens $x_1, \ldots, x_T$
+\item $z$: a latent variable, which may be a sequence or other structured object
+\item $\boldz$: a latent vector
+\item  $\theta$:  generative model parameters
+\item $\lambda$: variational parameters
+\item $\Delta^{V-1}$: the standard $V$-simplex, viz., the set $\{\bpi \in \reals^V \mid \pi_v \geq 0 \text{ for all $v$, and } \sum_{v=1}^V \pi_v = 1 \}$
+\end{itemize}
+
+
+
+
+\section{Prototypical Latent Variable Models of Text}
+We first present several prototypical latent variable models of text. Text will be modeled as a sequence $x = x_1, \ldots, x_T$ of $T$ tokens (e.g., words), and all of the models we introduce will provide us with a joint distribution $p(x, z \param \theta)$ over the observed tokens $x$ and unobserved latent variables $z$. We will defer the motivation for these models to the next section.
+
+%For the moment, we will consider only generative models of $x$ itself, and we will condition on nothing else. We will defer the motivation for these prototypical models to the next section. We will also discuss \textit{conditional} models [[Should we maybe make data $y$??]] in Section... 
+
+\subsection{A Categorical Latent Variable Model}\label{naivebayes}
+\label{sec:catlatmodel}
+As a warm-up, let us consider a non-deep latent variable model, namely, a latent-variable Naive Bayes model.
+This model assumes that a sequence of tokens $x = x_1, \ldots, x_T$ (such as a sentence or document) is generated according to the following process:
+
+\begin{enumerate}
+\item Draw latent variable $z \in \{1, \ldots, K\}$ from a Categorical prior $p(z ;\ \bmu)$ with parameter $\bmu \in \Delta^{K-1}$. That is,
+$p(z = k ;\ \bmu) = \mu_k$.
+\item Given $z$, draw each token $x_t \in \{1, \dots, V\}$ in $x$ independently from a Categorical distribution with parameter $\bpi_{z} \in \Delta^{V-1}$. That is, $p(x_t = v \param \bpi_{z}) = \pi_{z, v}$,
+%\[ p(x_t = v ;\ \bpi_{z}) = \pi_{z, v}  \; , \] 
+where $\pi_{z, v}$ is the probability of drawing word index $v$ given the latent variable $z$.
+Thus, the probability of the sequence $x = x_1, \dots, x_T$ given $z$ is
+\[ p(x \given z ; \ \bpi_{z}) = \prod_{t=1}^T \pi_{z, x_t} \; . \]
+\end{enumerate}
+
+Letting $\theta = [\bmu, \bpi_{1}, \ldots, \bpi_K]$ be all the parameters of our model, the full joint distribution is
+\begin{align} \label{eq:nb}
+ p(x, z ; \ \theta) = p(z;\ \bmu) \times p(x \given z; \ \bpi_{z}) = \mu_{z} \times  \prod_{t=1}^T \pi_{z, x_t} \; .
+ \end{align}
+
+This model assumes that each token in $x$ is generated independently,
+conditioned on $z$. This assumption is clearly naive (hence the name) but greatly reduces the number
+of parameters that need to be estimated.\footnote{In our formulation we model text as \emph{bag-of-words} and thus ignore position information. It is also possible to model position-specific probabilities within Naive Bayes with additional parameters $\pi_{z,v,t}$ for $t = 1, \dots T$. This would result in $KVT$ parameters.} The total number of parameters in this generative model is $K + KV$, where we have a $K$ parameters for $\mu$ and $V$ parameters in $\pi_z$ for each of the $K$ values of $z$.\footnote{The model is overparameterized since we only need $V-1$ parameters for a Categorical distribution over a set of size $V$. This is rarely an issue in practice.} 
+
+Despite the Naive Bayes assumption, the above model becomes interesting when we have $N$ sequences $\{x^{(n)}\}_{n=1}^N$ that we assume to be generated according to the above process. Indeed, since each sequence $x^{(n)}$ comes with a corresponding latent variable $z^{(n)}$ governing its generation, we can see the $z^{(n)}$ values as inducing a clustering over the sequences $\{x^{(n)}\}_{n=1}^N$. We show a graphical model depicting this scenario in Figure~\ref{fig:nbgm}.
+
+
+\begin{figure}
+\centering
+\begin{tikzpicture}
+  %\tikz{
+% nodes
+\node (dots) {$\ldots$};%
+ \node[obs, left=1cm of dots] (x1) {$x_1^{(n)}$};%
+ \node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
+ \node[latent, above=of dots] (z) {$z^{(n)}$}; %
+ \node[const, above=of z] (mu) {$\bmu$};
+ \node[const, below left=0.3cm and 0.8cm of x1] (pi) {$\bpi_1, \ldots, \bpi_K$};
+ 
+% plate
+ \plate {plate1} {(dots)(x1)(xT)(z)} {$N$}; %
+% edges
+ \edge {z} {dots};
+ \edge {z} {x1};
+ \edge {z} {xT};
+ \edge {mu} {z};
+ \edge {pi.east} {x1,xT};
+ %}
+ \end{tikzpicture}
+ \caption{Naive Bayes graphical model. For simplicity, all sequences are depicted as having $T$ tokens. All distributions are categorical, and the parameters are $\bmu \in \Delta^{K-1}$ and $\bpi_k \in \Delta^{V-1}$ for $k = 1, \dots, K$.}
+ \label{fig:nbgm}
+\end{figure}
+
+
+\paragraph{Making the Model ``Deep''} One of the reasons we are interested in deep latent variable models is that neural networks make it simple to define flexible distributions without using too many parameters. As an example, 
+we can formulate a similar model of $x$ that avoids the Naive Bayes assumption above (whereby each token is generated independently given $z$) using a \emph{recurrent neural network} (RNN). An RNN will allow the probability of $x_{t}$ to depend on the entire history $x_{<t} = x_1, \dots, x_{t-1}$ of tokens preceding $x_{t}$, by associating a vector $\boldh_{z, t-1}$ with the history of tokens through time $t-1$, given latent variable $z$. We might therefore define the probability of $x$ given latent variable $z$ with the following equations: 
+\begin{align} \label{eq:rnnnb}
+\boldh_{z,t} &= \tanh(\mathbf{W}_z \bolde_t +\mathbf{U}_z\boldh_{z,t-1}  + \boldb_{z}) \nonumber \\
+p(x_{t} \given x_{<t} , z) &= \softmax(\mathbf{V} \boldh_{z, t-1} + \boldc)_{x_{t}} \nonumber \\
+p(x \given z) &= \prod_{t=1}^{T} p(x_{t} \given x_{<t} , z) 
+\end{align}
+where $\bolde_t$ is the \textit{embedding} for $x_t$, and $\boldh_0 = \mathbf{0}$. Note that while
+the (input) embedding matrix $\mathbf{E} = \biggl[ \begin{smallmatrix} \bolde_1^{\trans} \\ \vdots \\ \bolde_V^{\trans}  \end{smallmatrix} \biggr]$ and output embedding matrix $\boldV$ are shared, we have separate recurrent neural network parameters for each of the $K$ values $z$ can take on. Hence, the parameters of the model  $p(x , z ; \ \theta)$ are given by
+$\theta = [\mu, \boldE, \boldV, \boldc, \mathbf{W}_1, \mathbf{U}_1, \boldb_1, \ldots, \mathbf{W}_K, \mathbf{U}_K, \boldb_K]$, and we obtain a joint distribution $p(x, z ; \ \theta)$ by substituting~\eqref{eq:rnnnb} into the term for $p(x \given z)$ in~\eqref{eq:nb}. We show the corresponding graphical model in Figure~\ref{fig:catrnngm}. Note that the above parameterization is being used only for illustrative purposes; other parameterizations are likely preferable.\footnote{For example, we may have one RNN but concatenate the one-hot representation of $z$ along with the input at each time step. It is  also standard practice to use LSTM~\citep{hochreiter1997long} or GRU~\citep{Cho2014} units instead of the Elman-style~\citep{elman1990} RNNs above.} 
+
+
+
+\begin{figure}
+\centering
+\begin{tikzpicture}
+% nodes
+\node (dots) {$\ldots$};%
+ \node[obs, left=1cm of dots] (x1) {$x_1^{(n)}$};%
+ \node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
+ \node[latent, above=of dots] (z) {$z^{(n)}$}; %
+ \node[const, above=of z] (mu) {$\bmu$};
+ \node[const, below left=0.4cm and 0.5cm of x1, text width=3.5cm] (pi) {$\boldE$, $\boldV$, $\boldc$, $\boldW_1, \ldots, \boldW_K$, $\boldU_1, \ldots, \boldU_K$, $\boldb_1,\ldots,\boldb_K$};
+ 
+% plate
+ \plate {plate1} {(dots)(x1)(xT)(z)} {$N$}; %
+% edges
+ \edge {z} {dots};
+ \edge {z} {x1};
+ \edge {z} {xT};
+ \edge {mu} {z};
+ \edge {x1} {dots};
+ %\edge[bend left] {x1.south} {xT.south};
+  \edge {dots} {xT};
+ \edge {pi.east} {x1,xT.south};
+ 
+ \draw[->] 
+ (x1) edge[bend right] node [right] {} (xT);
+ %\draw[->]
+ %(dots) edge[bend right] node [right] {} (xT);
+ 
+\end{tikzpicture}
+ \caption{Graphical model representation of a categorical latent variable model with tokens generated by an RNN. For simplicity, all sequences are depicted as having $T$ tokens. The $z^{(n)}$'s are drawn from a Categorical distribution with parameter $\bmu$, while each token $x^{(n)}_t$ has a Categorical distribution conditioned on its history $x^{(n)}_{<t}$ and $z^{(n)}$. This distribution is parameterized by RNNs with parameters $\boldE$, $\boldV$, $\boldc$, $\boldW_1, \ldots, \boldW_K$, $\boldU_1, \ldots, \boldU_K$, $\boldb_1,\ldots,\boldb_K$ (i.e. we have one RNN for each $k = 1, \dots K$.}
+ \label{fig:catrnngm}
+\end{figure}
+
+
+\subsection{A Structured, Discrete Latent Variable Model}
+\label{sec:structlatmodel}
+Let us now consider a model with multiple discrete latent variables per data-point. In particular, we will consider the Hidden Markov Model (HMM)~\citep{rabiner1989tutorial}, which models sequences of observed tokens (e.g., words) by assuming there is a corresponding sequence of latent variables (one for each observation), and that each latent variable in the sequence is responsible for generating the corresponding observed token. This model additionally assumes that each latent variable depends only on the previous latent variable in the sequence. Concretely, an HMM assumes that a sequence of discrete tokens $x = x_1, \ldots, x_T$ is generated according to the following process:
+
+First, begin with variable $z_0$, which is always equal to the special ``start" state $0$ (i.e. $z_0 = 0$). Then, for $t = 1, \ldots, T$
+\begin{enumerate}
+    \item Draw latent variable $z_t \in \{1, \ldots, K\}$ from a Categorical distribution with parameter $\bolda_{z_{t-1}} \in \Delta^{K-1}$. That is, $p(z_t = k \given z_{t-1}; \ \bolda_{z_{t-1}}) = \bolda_{z_{t-1}, k}$.
+    \item Draw observed token $x_t \in \{1, \ldots, V\}$ from a Categorical distribution with parameter $\boldb_{z_{t}} \in \Delta^{V-1}$. That is, $p(x_t = v \given z_{t}; \ \boldb_{z_{t}}) = \boldb_{z_{t}, v}$.
+\end{enumerate}
+
+The above generative process gives rise to the following joint distribution over tokens $x = x_1, \ldots, x_T$ and latent variables $z = z_1, \ldots, z_T$:
+\begin{alignat}{2} \label{eq:hmm}
+    p(x, z; \ \theta) &= p(z_1, \ldots, z_T ; \ \boldA) &&\times p(x_1, \ldots, x_T \given z_1, \ldots, z_T ; \ \boldB) \nonumber \\
+    &= \prod_{t=1}^T p(z_t \given z_{t-1} ; \ \bolda_{z_{t-1}}) &&\times \prod_{t=1}^T p(x_t \given z_{t} ; \ \boldb_{z_{t}}) \nonumber \\ 
+    &= \prod_{t=1}^T \bolda_{z_{t-1}, z_t} &&\times \prod_{t=1}^T \boldb_{z_{t}, x_t}
+\end{alignat}
+
+Above, we have stacked the latent variable categorical parameters into a $(K+1) \times K$ matrix $\boldA = \Biggl[ \begin{smallmatrix} \bolda_0^{\trans} \\ \bolda_1^{\trans} \\ \vdots \\ \bolda_K^{\trans}  \end{smallmatrix} \Biggr]$ (where $\bolda_0$ parameterizes the distribution over initial state), and the observed element parameters into a $K \times V$ matrix $\boldB = \biggl[ \begin{smallmatrix} \boldb_1^{\trans} \\ \vdots \\ \boldb_K^{\trans}  \end{smallmatrix} \biggr]$, and so our parameters are $\theta = [\boldA, \boldB]$. We often refer to $\boldA$ as the ``transition matrix,'' since it governs the transitions between latent variables, and to $\boldB$ as the ``emission matrix,'' since it governs the emission of tokens $x_t$. We show the corresponding graphical model in Figure~\ref{fig:hmm}.
+
+It is important to note that the second equality above makes some significant independence assumptions: it assumes that the probability of $z_t$ depends only on $z_{t-1}$ (and not on $z_{<t-1}$ or $x_{<t}$), and it assumes that the probability of $x_t$ depends only on $z_t$ (and not on $z_{<t}$ or $x_{<t}$). These "Markov" (i.e., independence) assumptions are what give the Hidden Markov Model its name. We also note that we have referred to an HMM as a ``structured'' latent variable model because the latent sequence $z = z_1, \ldots, z_T$ is structured in the sense that it contains multiple components that are interdependent, as governed by $\boldA$.
+
+
+\begin{figure}
+\centering
+\begin{tikzpicture}
+  %\tikz{
+% nodes
+ \node[obs] (x1) {$x_1$};
+ \node[obs, right=1cm of x1] (x2) {$x_2$};%
+ \node[obs, right=1cm of x2] (x3) {$x_3$};%
+ \node[obs, right=1cm of x3] (x4) {$x_4$};%
+ \node[latent, above=of x1] (z1) {$z_1$}; %
+ \node[latent, above=of x2] (z2) {$z_2$}; %
+ \node[latent, above=of x3] (z3) {$z_3$}; %
+ \node[latent, above=of x4] (z4) {$z_4$}; %
+ \node[const, above left=1cm and 0.5cm of z3] (A) {$\boldA$};
+ \node[const, below left=1cm and 0.5cm of x3] (B) {$\boldB$};
+ 
+% edges
+ \edge {z1} {x1,z2};
+ \edge {z2} {x2,z3};
+ \edge {z3} {x3,z4};
+ \edge {z4} {x4};
+ \edge {A}{z1,z2,z3,z4};
+ \edge {B}{x1,x2,x3,x4};
+ %}
+ \end{tikzpicture}
+ \caption{HMM graphical model for a sequence of length $T=4$. All distributions are categorical; $\boldA$ is a $(K +1) \times K$ transition matrix (which also specifies the distribution over the initial state), and $\boldB$ is a $K \times V$ emission matrix.}
+ \label{fig:hmm}
+\end{figure}
+
+\paragraph{Making the Model ``Deep''}
+We can create a ``deep'' HMM (c.f., \citet{tran2016,Johnson2016}) by viewing the $\boldA$ and $\boldB$ matrices as being parameterizable in their own right, using neural network components. For example, if we associate embeddings $\boldq_k \in \reals^d$ with each of the $K$ values the $z_t$ can take on, we might parameterize the transition distribution $\bolda_k$ with a multilayer perceptron (MLP):
+\begin{align*}
+p(z_t \given z_{t-1} = k) = \bolda_k = \softmax(\boldU_1 \tanh(\boldW_1 \boldq_k + \boldc_1)),
+\end{align*}
+where $\boldW_1 \in \reals^{d_2 \times d}$, $\boldc_1 \in \reals^{d_2}$, and $\boldU_1 \in \reals^{K \times d_2 }$. Note that if $K$ is much larger than $d$ and $d_2$, the above parameterization of $\boldA$ (which requires $K \times d + d_2 \times (d+1) + K \times d_2$ parameters) may result in many fewer parameters than the non-deep parameterization of $\boldA$ (which requires $K \times K$ parameters).
+
+In the same way, we might parameterize the emission distribution $\boldb_k$ with an MLP:
+\begin{align*}
+p(x_t \given z_{t} = k) = \boldb_k = \softmax(\boldU_2 \tanh(\boldW_2 \boldq_k + \boldc_2)),
+\end{align*}
+where $\boldW_2 \in \reals^{d_2 \times d}$, $\boldc_2 \in \reals^{d_2}$, and $\boldU_2 \in \reals^{V \times d_2}$. Again, we may require many fewer parameters under this parameterization if $K$ and $V$ are much larger than $d$ and $d_2$. We show a graphical model consistent with the above parameterization in Figure~\ref{fig:deephmm}, where $\boldQ = \biggl[ \begin{smallmatrix} \boldq_1^{\trans} \\ \vdots \\ \boldq_K^{\trans}  \end{smallmatrix} \biggr]$ are the state embeddings.
+
+
+\begin{figure}
+\centering
+\begin{tikzpicture}
+  %\tikz{
+% nodes
+ \node[obs] (x1) {$x_1$};
+ \node[obs, right=1cm of x1] (x2) {$x_2$};%
+ \node[obs, right=1cm of x2] (x3) {$x_3$};%
+ \node[obs, right=1cm of x3] (x4) {$x_4$};%
+ \node[latent, above=of x1] (z1) {$z_1$}; %
+ \node[latent, above=of x2] (z2) {$z_2$}; %
+ \node[latent, above=of x3] (z3) {$z_3$}; %
+ \node[latent, above=of x4] (z4) {$z_4$}; %
+ \node[const, above left=1cm and -0.2cm of z3] (A) {$\boldQ, \boldU_1, \boldW_1, \boldc_1$};
+ \node[const, below left=1cm and -0.2cm of x3] (B) {$\boldQ, \boldU_2, \boldW_2, \boldc_2$};
+ 
+% edges
+ \edge {z1} {x1,z2};
+ \edge {z2} {x2,z3};
+ \edge {z3} {x3,z4};
+ \edge {z4} {x4};
+ \edge {A}{z1,z2,z3,z4};
+ \edge {B}{x1,x2,x3,x4};
+ %}
+ \end{tikzpicture}
+ \caption{Deep HMM graphical model for a sequence of length $T=4$. All distributions are categorical, with the transition distribution parameterized by a neural network with parameters $\boldQ, \boldU_1, \boldW_1, \boldc_1$, and the emission distribution parameterized by a neural network with parameters $\boldQ, \boldU_2, \boldW_2, \boldc_2$. Note that $\boldQ$ is shared, and has been drawn twice to simplify the diagram.}
+ \label{fig:deephmm}
+\end{figure}
+
+\subsection{A Real-valued Latent Variable Model}\label{reallatent}
+\label{sec:reallatmodel}
+We now consider a model in which the latent variables are no longer discrete, but are instead vectors in $\reals^d$. (Note that there is something appealing about this, since in the previous subsection we mapped discrete values of $z_t$ to vectors $q_k \in \reals^d$ anyway). We will again consider a model like the one introduced in Section~\ref{sec:catlatmodel}, where there is one latent variable per sequence, rather than per token. In particular, we will assume a sequence is generated according to the following process:
+\begin{enumerate}
+    \item Draw latent variable $\boldz$ from $\mcN(\bmu, \bSigma)$---that is, from a Gaussian distribution with parameters $\bmu$ and $\bSigma$, where $\bmu \in \reals^d$ and $\bSigma \in S^d_+$, the set of positive semidefinite $d \times d$ matrices.
+    \item Given $\boldz$, draw each token $x_t \in \{1, \ldots, V\}$ in $x$ from a Categorical distribution parameterized by an RNN that conditions on $\boldz$. For example, we might have 
+    \begin{align} \label{eq:realrnn}
+\boldh_{\boldz,t} &= \tanh(\boldW \bolde_t + \boldU \boldh_{\boldz,t-1}  + \boldQ \boldz) \nonumber \\
+p(x_{t} \given x_{<t} , \boldz) &= \softmax(\boldV \boldh_{\boldz,t-1} + \boldc)_{x_{t}} \nonumber \\
+p(x \given \boldz) &= \prod_{t=1}^{T} p(x_{t} \given x_{<t} , \boldz) 
+\end{align}
+\end{enumerate}
+Note the similarity to Equation~\eqref{eq:rnnnb}.\footnote{Note that a Naive Bayes version of the above model is also possible, as is a non-deep model.} We can then form the joint density as
+\begin{align} \label{eq:realdensity}
+ p(x, \boldz ; \ \theta) &= p(\boldz; \ \bmu, \bSigma) \times p(x \given \boldz; \ \boldW, \boldU, \boldQ, \boldV, \boldc, \boldE) \nonumber \\
+ &= \mcN(\boldz; \bmu, \bSigma) \times  \prod_{t=1}^T p(x_t \given x_{<t}, \boldz; \ \boldW, \boldU, \boldQ, \boldV, \boldc, \boldE),
+ \end{align}
+where $\theta = [\bmu, \bSigma,\boldW, \boldU, \boldQ, \boldV, \boldc, \boldE]$. We show a corresponding graphical model in Figure~\ref{fig:realrnngm}.
+
+
+\begin{figure}
+\centering
+\begin{tikzpicture}
+% nodes
+\node (dots) {$\ldots$};%
+ \node[obs, left=1cm of dots] (x1) {$x_1^{(n)}$};%
+ \node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
+ \node[latent, above=of dots] (z) {$\boldz^{(n)}$}; %
+ \node[const, above left=1cm and 0.25cm of z] (mu) {$\bmu$};
+ \node[const, above right=1cm and 0.25cm of z] (sigma) {$\bSigma$};
+ \node[const, below left=0.6cm and 0.6cm of x1] (pi) {$\boldE$, $\boldW$, $\boldU$, $\boldQ$, $\boldV$, $\boldc$};
+ 
+% plate
+ \plate {plate1} {(dots)(x1)(xT)(z)} {$N$}; %
+% edges
+ \edge {z} {dots};
+ \edge {z} {x1};
+ \edge {z} {xT};
+ \edge {mu} {z};
+ \edge {sigma} {z};
+ \edge {x1} {dots};
+ %\edge[bend left] {x1.south} {xT.south};
+  \edge {dots} {xT};
+ \edge {pi.east} {x1,xT.south};
+ 
+ \draw[->] 
+ (x1) edge[bend right] node [right] {} (xT);
+ %\draw[->]
+ %(dots) edge[bend right] node [right] {} (xT);
+ 
+\end{tikzpicture}
+ \caption{Graphical model representation of a real latent variable model with tokens generated by an RNN. For simplicity, all sequences are depicted as having $T$ tokens. The $\boldz^{(n)}$ are drawn from a Gaussian distribution with parameters $\bmu$ and $\bSigma$, while each token $x^{(n)}_t$ has a Categorical distribution conditioned on its history $x^{(n)}_{<t}$ and $\boldz^{(n)}$, and parameterized by an RNN with parameters $\boldE$, $\boldW$, $\boldU$, $\boldQ$ $\boldV$, and $\boldc$.}
+ \label{fig:realrnngm}
+\end{figure}
+
+
+Note that we might be interested in imposing additional constraints on $\boldz$, such as requiring that it live in the positive orthant, which can be accomplished by drawing $\boldz$ from a suitable distribution. 
+
+
+
+\section{Motivation and Examples}
+We now motivate the prototypical models we have introduced in the previous section, and provide some examples of where similar models have been used in the literature. In general, we tend to be interested in latent variable models for any of the following interrelated reasons:
+\begin{itemize}
+\item[(a)] we have no or only partial supervision;
+\item[(b)] we want to make our model more interpretable;
+\item[(c)] we wish to model a multimodal distribution over $x$; 
+\item[(d)] we would like to use latent variables to control our predictions; 
+\end{itemize}
+and we will see that many of these apply to the models we will be discussing.
+
+% \begin{itemize}
+% \item No or partial supervision (e.g., unsupervised parsing, word alignment)
+% \item Interpretability (e.g., topic models, attention)
+% \item Multimodality (e.g., text generation)
+% \item Disentangling/Controlling (e.g., text generation)
+% \end{itemize}
+
+\subsection{Examples of Categorical Latent Variable Models}
+\paragraph{Document Clustering} The paradigmatic example application of categorical latent variable models to text is document clustering (i.e., unsupervised document classification). In this setup we are given a set of $N$ documents $\{x^{(n)}\}_{n=1}^N$, which we would like to partition into $K$ clusters such that intra-cluster documents are maximally similar. This clustering can be useful for retrieving or recommending unlabeled documents similar to some query document. Seen from the generative modeling perspective described in Section~\ref{sec:catlatmodel}, we view each document $x^{(n)}$ as being generated by its corresponding latent cluster index, $z^{(n)} \in \{1, \ldots, K\}$, which gives us a model of $p(x^{(n)}, z^{(n)} \param \theta)$. Since we are ultimately interested in obtaining the label (i.e., cluster index) of a document, however, we would then form the posterior over labels $p(z^{(n)} \given x^{(n)} \param \theta) = \frac{p(x^{(n)}, z^{(n)} \param \theta)}{\sum_{k=1}^K p(x^{(n)}, z^{(n)}=k \param \theta)}$ in order to determine the likely label for $x^{(n)}$.\footnote{Note that if we are just interested in finding the most likely label for $x^{(n)}$ we can simply evaluate $\argmax_k p(x^{(n)}, z^{(n)}=k \param \theta)$, since $\argmax_k p(x^{(n)}, z^{(n)}=k \param \theta) = \argmax_k \frac{p(x^{(n)}, z^{(n)} = k \param \theta)}{\sum_{k'=1}^K p(x^{(n)}, z^{(n)}=k' \param \theta)}$.}
+
+Work on document clustering goes back decades (see \citet{willett1988recent} and \citet{aggarwal2012survey} for surveys), and many authors take the latent variable perspective described above. In terms of incorporating deep models into document clustering, it is possible to make use of neural components (such as RNNs) in modeling the generation of words in each document, as described in Section~\ref{sec:catlatmodel}. It has been more common recently, however, to attempt to cluster real-valued vector-representations (i.e., embeddings) of documents. For instance, it is common to pre-compute document or paragraph embeddings with an unsupervised objective and then cluster these embeddings with K-Means~\citep{macqueen1967some}; see ~\citet{le2014distributed} and \citet{xu2015short} for different approaches to obtaining these embeddings before clustering. \citet{xie2016unsupervised} continue to update document embeddings as they cluster, using an auxiliary loss derived from confidently clustered examples.  Whereas none of these document-embedding based approaches are presented explicitly within the generative modeling framework above, they can all be viewed as identifying parameterized distributions over real vectors (e.g., Gaussians with particular means and covariances) with each cluster index, which in turn generate the \textit{embeddings} of each document (rather than the words of each document). This sort of generative model is then (at least in principle) amenable to forming posteriors over cluster assignments, as above.
+
+\paragraph{Mixtures of Experts}
+Consider a supervised image captioning scenario, where we wish to produce a textual caption $x$ in response to an image $c$, and we are given a training set of $N$ aligned image-caption pairs $\{(c^{(n)}, x^{(n)})\}_{n=1}^N$. When training a model to generate captions similar to those in the training set, it may be useful to posit that there are in fact several ``expert'' captioning models represented in the training data, each of which is capable of generating a slightly different caption for the same image $c$. For instance, experts might differ in terms of the kind of language used in the caption (e.g., active vs. passive) or even in terms of what part of the image they focus on (e.g., foreground vs. whatever the human in the image is doing). Of course, we generally don't know beforehand which expert is responsible for generating which caption in the training data, but we can aim to capture the variance in captioning induced by these posited experts by identifying each value of a categorical latent variable $z$ with a different posited expert, and assuming that a caption $x^{(n)}$ is generated by first choosing one of these $K$ experts, which in turn generates $x^{(n)}$ conditioned on $c^{(n)}$. This type of model is known as a Mixture of Experts (MoE) model~\citep{jacobs1991adaptive}, and it gives rise to a joint distribution over $x^{(n)}$ and $z^{(n)}$, only this time we will also condition on $c^{(n)}$: $p(x^{(n)}, z^{(n)} \given c^{(n)} \param \theta)$. 
+
+MoE models are widely used, and they are particularly suited to ensembling scenarios, where we wish to ensemble several different prediction models, which may have different areas of expertise. \citet{garmash2016ensemble} use an MoE to ensemble several expert neural machine translation models, and \citet{lee2016stochastic} use a related approach, called ``diverse ensembling,'' in training a neural image captioning system, showing that their model is able to generate more diverse captions as a result; \citet{he2018moe} find that MoE also lead to more diverse responses in machine translation, and \citet{gehrmann2018end} use a similar technique for generating descriptions of restaurant databases. There has also been work in text-generation that uses an MoE model per \textit{token}, rather than per sentence~\citep{yin2016neural,le2016lstm,yang2018breaking}.\footnote{Although these models have multiple discrete latents per datapoint, which suggests that we should perhaps consider them to be structured latent variable models, we will consider them unstructured since the interdependence between token-level latents is not made explicit in the probability model; correlations between these latents, however, are undoubtedly modeled to some extent by the associated RNNs.} See also ~\citet{eigen2013learning} and \citet{shazeer2017outrageously}, who use MoE \textit{layers} in constructing neural network architectures, and in the latter case for the purpose of language modeling.
+
+Note that in the case of MoE models, we are interested in using a latent variable model not just because the training examples are not labeled with which experts generated them (reason (a) above), but also for reasons (c) and (d). That is, we attempt to capture different modes in the caption distribution (perhaps corresponding to different styles of caption, for example) by identifying a latent variable with each of these experts or modes. Similarly, we might hope to control the style of the caption by restricting our captioning system to one expert. When it comes to document clustering, on the other hand, we are interested in latent variables primarily because we don't have labeled clusters for our documents (reason (a)). Indeed, since we are interested primarily in the \textit{posterior} over $z^{(n)}$, rather than the joint distribution, reasons (c) and (d) are not applicable.
+
+% , and also perhaps because discrete latent variables can help to visualize and interpret large document collections (reason (b)) by associating documents with their latent variables. We are likely not interested in controlling anything (reason (d)), however, since we are generally not interested We emphasize that reasons (a) through (d) above are all interrelated, and should be viewed more akin to perspectives one might take on why a latent variable model might be useful.
+
+\subsection{Example Structured, Discrete Latent Variable Models}
+\paragraph{Unsupervised Tagging and Parsing}
+The simplest example application of structured, discrete latent variable modeling in NLP involves inducing the part-of-speech (POS) tags for a sentence. More formally, we are given a sentence $x = x_1, \ldots, x_T$, and we wish to arrive at a sequence $z = z_1, \ldots, z_T$ of POS tags, one for each word in the sentence. HMMs, as described in Section~\ref{sec:structlatmodel}, and their variants have historically been the dominant approach to arriving at a joint distribution $p(x_1, \ldots, x_T, z_1, \ldots, z_T \param \theta)$ over words and tags~\citep{brown1992class,merialdo1994tagging,smith2005contrastive,haghighi2006prototype,johnson2007doesn,toutanova2008bayesian,kirk2010,christodoulopoulos2010two,blunsom2011hierarchical,stratos2016unsupervised}. We may then predict the POS tags for a new sentence $x$ by calculating
+\begin{align*}
+    \argmax_{z_1, \ldots, z_T} p(z_1, \ldots, z_T \given x_1, \ldots, x_T \param \theta) = \argmax_{z_1, \ldots, z_T} p(x_1, \ldots, x_T, z_1, \ldots, z_T \param \theta).
+\end{align*}
+
+There has been recent work~\citep{tran2016} exploring parameterizing the transition and emission probabilities of an HMM with neural components, as described in Section~\ref{sec:structlatmodel}, for unsupervised POS tagging, with good results. In addition, just as recent approaches to neural document clustering have defined models that generate document \textit{embeddings} rather than the documents themselves, there has been recent work in neural, unsupervised POS tagging based on defining neural HMM-style models that emit word \textit{embeddings}, rather than words themselves~\citep{lin2015unsupervised,he2018}.
+
+Unsupervised dependency parsing represents an additional, fairly simple example application of neural models with structured latent variables. In unsupervised dependency parsing we attempt to induce a sentence's dependency tree without any labeled training data. Much recent unsupervised dependency parsing is based on the DMV model of \citet{klein2004corpus} and its variants~\citep{headden2009improving,spitkovsky2010viterbi,spitkovsky2011unsupervised}, where there are multiple discrete latent variables per word, rather than one, as in POS tagging. In particular, the DMV model can be viewed as providing a joint distribution over the words $x_1, \ldots, x_T$ in a sentence and discrete latent variables $z_1, \ldots, z_{3T}$ representing each left and right dependent of each word, as well as a final empty left and right dependent for each word. As in the case of unsupervised tagging, we are primarily interested in predicting the most likely dependency tree given a sentence:
+\begin{align*}
+    \argmax_{z_1, \ldots, z_{3T}} p(z_1, \ldots, z_{3T} \given x_1, \ldots, x_T \param \theta) = \argmax_{z_1, \ldots, z_{3T}} p(x_1, \ldots, x_T, z_1, \ldots, z_{3T} \param \theta).
+\end{align*}
+%In particular, the DMV model can be viewed as providing a joint distribution over the words $x_1, \ldots, x_T$ in a sentence and \textit{three} discrete latent variables per word $z_1, \ldots, z_{3T}$ each (non-ROOT) word as having a latent variable indicating to which head word it attaches, as well as a latent variable indicating how many dependents it itself has. 
+Again, neural approaches divide between those that parameterize DMV-like models, which jointly generate the dependency tree and its words, with neural components~\citep{jiang2016unsupervised,cai2017crf,han2017dependency}, and those which define DMV-models that generate embeddings~\citep{he2018}.
+
+
+\paragraph{Text Generation}
+Structured latent variables are also widely used in text generation models and applications. %For instance, \citet{yang2018breaking} associate a discrete latent variable with each token (much as unsupervised POS tagging models do), and find that it improves language modeling performance; here again the intuition is that we may have separate, latent ``expert'' models per token (rather than per sequence, as above). 
+In \textit{conditional} text generation applications, for example, where we wish to generate some text $x$ conditioned on some input $c$ (e.g., an image for image captioning, a sentence in another language for machine translation, a structured database for database-to-document summarization), it has also become common to  posit additional latent variables $z$ which generate $x$ along with $c$. For instance, we may interpret attention in sequence-to-sequence models as a latent, per-token alignment variable~\citep{Xu2015,deng2018}. Other recent conditional generation work considers modeling $x$ as being generated both by $c$ as well as by a shorter sequence of latent variables $z$~\citep{kaiser2018fast,roy2018theory}, a sequence of fertility latent variables $z$~\citep{gu2018nonautoregressive}, a sequence of iteratively refined sequences of latent variables $z$~\citep{lee2018deterministic}, or by a latent template or plan $z$~\citep{wiseman2018learning}. 
+
+\paragraph{Semi-supervised Summarization}
+Consider the following generative model of documents: we first sample a condensed, summary version of a document from some distribution $p(z_1, \ldots, z_{T_1})$, where the summary consists of $T_1$ word tokens. Then, conditioned on the summary $z_1, \ldots, z_{T_1}$, we generate the full, expanded version of the document: $x_1, \ldots, x_{T_2}$ by sampling from some distribution $p(x_1, \ldots, x_{T_2} \given z_1, \ldots, z_{T_1})$, where the full document consists of $T_2$ word tokens. This model, with the two above distributions parameterized by RNNs, is proposed by \citet{miao2016language}, and it gives us a joint distribution over documents and their corresponding summaries. As we will see later in the tutorial, if we have some supervised summarization data (i.e., pairs of documents $x^{(n)}$ and their summaries $z^{(n)}$), we can learn $p(z_1, \ldots, z_{T_1} \given x_1, \ldots, x_{T_2})$, the distribution of summaries given documents, which in turn may allow us to train on additional documents $x$ for which we do \textit{not} have summaries. In particular, we may be able to train on these unpaired documents $x$ by sampling their summaries from $p(z_1, \ldots, z_{T_1} \given x_1, \ldots, x_{T_2})$, and then improving our model of $p(x_1, \ldots, x_{T_2} \given z_1, \ldots, z_{T_1})$. Note that in this case the number of latent variables ($T_1$) will generally be smaller than the number of observed variables ($T_2$), unlike in the previous examples. These latent variables, however, are interdependent (since they represent a summary), and for this reason we consider them structured.
+
+
+
+\subsection{Example Real Latent Variable Models}
+It has recently become quite popular to view a sentence as being generated by a latent vector in $\reals^d$, rather than by a latent label in $\{1, \ldots, K\}$, or a structured, discrete object. For example, \citet{Bowman2016} develop a latent vector model of sentence generation, where sentences are generated with an RNN, in a way similar to that presented in Section~\ref{sec:reallatmodel}. This model and its extensions~\citep{Yang2017,hu2017toward,Kim2018}, represent the dominant approach to neural latent variable modeling of sentence generation. 
+
+There are several motivations for viewing a sentence as being generated by a single latent vector rather than by discrete labels or sequences. First, we might believe real vectors to be able to carry more information relevant to generating a sentence than a mere label. Second, viewing sentences as being generated by real vectors gives us a fine-grained notion of similarity between sentences, namely, the distance between the corresponding latent representations; this has also motivated extensive work on obtaining sentence embeddings~\citep{le2014distributed,kiros2015skip,joulin2016bag,conneau2017supervised,peters2018deep,pagliardini2018unsupervised,ruckle2018concatenated,cer2018universal}, though sentence embeddings need not be interpreted within the framework of latent variable modeling. Finally, real vector valued latent variables may be more convenient to learn, in certain cases, than discrete latent representations.
+
+Maybe do supervised examples?
+
+
+
+\section{Learning and Inference}\label{learningin}
+After defining a latent-variable model, we are typically interested in being able to do two related tasks: (1) we would like to be able to learn the parameters $\theta$ of the model, and (2) once trained, we would like to be able to perform \textit{inference} over the model. That is, we'd like to be able to compute the posterior distribution $p(z \given x \param \theta)$ (or approximations thereof) over the latent variables, given some data $x$. As we will see, these two tasks are intimately connected because learning often uses inference as a subroutine. On an intuitive level, this is because if we \textit{knew}, for instance, the value of $z$ given $x$, learning $\theta$ would be simple: we would simply maximize $p(x \given z_{\text{known}} \param \theta)$. Thus, as we will see, learning often involves alternately inferring likely $z$ values, and optimizing the model assuming these inferred $z$'s.
+
+
+%(Informally, this connection arises since in exponential families the gradient of the log-partition function is the expected sufficient statistic.)
+
+The dominant approach to learning latent variable models in a probabilistic setting is to maximize the  log marginal likelihood. This is equivalent to minimizing $\KL[p_\star(x) \Vert p(x \param \theta)]$, the KL-divergence between the
+ true data distribution $p_\star(x)$ and the model distribution $p(x \param \theta)$, where
+ the latent variable $z$ has been marginalized out. It is also possible to approximately minimize other divergences between $p_\star(x )$  and $p(x \param \theta)$, e.g. the Jensen-Shannon divergence or the Wasserstein distance.
+In the context of deep latent variable models, such methods often utilize a separate model (\textit{discriminator}/\textit{critic}) which
+learns to distinguish between samples from $p_\star(x)$ from samples from $p(x \param \theta)$. The generative model $\theta$ is trained ``adversarially" to fool the discriminator.
+This gives rise to a family of models known as Generative Adversarial Networks (GANs) \citep{goodfellow2014generative}. While not the main
+focus of the this tutorial, we review GANs
+and their applications to text modeling in section~\ref{gan}.
+
+\subsection{Directly Maximizing the Log Marginal Likelihood} \label{directll}
+We begin with cases where the log marginal likelihood,  i.e.
+\[ \log p(x \param \theta) = \log \sum_z p(x, z \param \theta) \]
+is tractable to evaluate. (The sum should be replaced with an integral if $z$ is continuous.)\footnote{More generally, we may work with the Riemann-Stieltjes integral and not worry about whether $z$ is continuous or discrete (or a mixture).} This is equivalent to assuming posterior inference is tractable, since 
+\[ p(z \given x \param \theta) = \frac{p(x, z \param \theta)}{p(x \param \theta)}. \]
+
+Calculating the log marginal likelihood is indeed tractable in some of the models that we have seen so far, such as categorical latent variable models where $K$ is not too big, or certain structured latent variable models (like HMMs) where dynamic programs allow us to efficiently sum over all the $z$ assignments. In such cases, maximum likelihood training of our parameters $\theta$ then corresponds to solving the following maximization problem:
+\[\argmax_{\theta} \sum_{n=1}^N \log p(x^{(n)}; \, \theta), \]
+%\argmax_{\theta} \sum_{i=1}^N \log \sum_{z} p(x^{(i)}, z^{} ; \ \theta) 
+where we have assumed $N$ examples in our training set.
+
+In cases where $p(x, z ;\theta)$ is parameterized by a deep model, the above maximization problem
+is not tractable to solve exactly. We will assume, however, that $ p(x, z ; \theta)$  is differentiable with respect to $\theta$. The main tool for optimizing such models, then, is gradient-based optimization. 
+% Given training pairs $(\boldx^{(i)}, z^{(i)})$ for $i=1, \dots N$,
+% we maximize the log-likelihood of the observed data with respect to the parameters $\theta = [\mu, \pi_{0,1}, \dots, \pi_{0, V}, \pi_{1,1}, \dots, \pi_{1, V}]$, i.e.
+% \begin{align*} 
+% \argmax_{\theta} \sum_{i=1}^N \log p(\boldx^{(i)}, z^{(i)} ;\ \theta) &= \argmax_{\pi, \mu}\sum_{i=1}^N \log p(\boldx^{(i)} \given z^{(i)} ;\ \pi ) + \log p( z^{(i)} ;\ \mu) \\
+% \text{s.t.}\,\,\,\, & \mu \in [0, 1], \pi_z \in \Delta^V
+% \end{align*}
+% It is not hard to show that the optimal parameters $\mu^\star, \pi^\star$ are given by the empirical probabilities, i.e.
+% \begin{align*} \mu^\star = \frac{\sum_{i=1}^N \ind [z^{(i)} = 1]}{N} && \pi^\star_{z, k} = \frac{\sum_{i=1}^N \ind[z^{(i)} = z] \sum_{d=1}^D \ind[x_d^{(i)} = k]/D}{\sum_{i=1}^N \ind [z^{(i)} = z]}
+% \end{align*}
+% where for the sake of simplicity we have assumed that each document has exactly $D$ words. 
+%In the unsupervised case where only $\boldx$ are observed, we can perform maximum likelihood training by marginalizing out the unobserved 
+%variable $z$, 
+%(From hereon we do not explicitly show the constraints on $\theta$.) Unlike the supervised case there is no closed-form solution
+%for the maximum likelihood estimate. 
+%We could also apply gradient ascent the log marginal likelihood directly. 
+In particular, define the log marginal likelihood over the training set  as
+\[ L(\theta) = \sum_{n=1}^N \log p(x^{(n)} \param \theta) = \sum_{n=1}^N \log \sum_{z }p(x^{(n)}, z \param \theta).\]
+The gradient is given by
+\begin{align*}
+\nabla_\theta L(\theta) &= \sum_{n=1}^N \frac{\nabla_\theta  \sum_{z} p(x^{(n)}, z\param \theta)}{p(x^{(n)} \param \theta)} \hspace{30mm} \text{(chain rule)}\\
+&=\sum_{n=1}^N \sum_z \frac{ p(x^{(n)}, z \param \theta)}{p(x^{(n)} \param \theta))}\nabla_\theta \log p(x^{(n)}, z \param \theta)  \hspace{8mm} \text{(since $\nabla p(x,z) = p(x,z)\nabla \log p(x,z))$}\\
+&= \sum_{n=1}^N \E_{p(z \given x^{(n)} \param \theta)} [\nabla_{\theta} \log p(x^{(n)}, z \param \theta) ]
+\end{align*}
+Note that the above gradient expression involves an expectation over the posterior $p(z \given x^{(n)} \param \theta)$, and is therefore an example of how inference is used as a subroutine in learning. With this expression for the gradient in hand, we may then learn by updating the parameters as
+\[ \theta^{(i+1)} = \theta^{(i)} + \eta \nabla_\theta L(\theta^{(i)}),\]
+where $\eta$ is the learning rate and $\theta^{(0)}$ is initialized randomly. In practice the gradient
+is calculated over \textit{mini-batches} (i.e. random subsamples of the training set), and adaptive algorithms \citep{duchi2011,zeiler2012,Kingma2015} are often used.
+
+\subsection{Expectation Maximization (EM) Algorithm}\label{em}
+The Expectation Maximization (EM) algorithm \citep{dempster77em} is an iterative method for learning latent variable models with tractable posterior inference.  It maximizes a lower bound on the log marginal likelihood at each iteration.
+Given randomly-initialized starting parameters $\theta^{(0)}$, the algorithm updates the parameters via the following alternating procedure:
+\begin{enumerate}
+\item E-step: Derive the posterior under current parameters $\theta^{(i)}$, i.e., $p(z \given x^{(n)} ; \, \theta^{(i)})$ for all $n = 1, \dots, N$.
+\item M-step: Define the \emph{expected complete data likelihood} as 
+\[ Q(\theta, \theta^{(i)}) = \sum_{n=1}^N \E_{p(z \given x^{(n)} ; \ \theta^{(i)})} [\log p(x^{(n)}, z ; \ \theta)] \]
+Maximize this with respect to $\theta$, holding $\theta^{(i)}$ fixed
+\[ \theta^{(i+1)} = \argmax_{\theta} Q(\theta, \theta^{(i)}) \]
+\end{enumerate}
+It can be shown that EM improves the log marginal likelihood at each iteration, i.e. 
+\[\sum_{n=1}^N \log p(x^{(n)} ; \, \theta^{(i+1)}) \ge \sum_{n=1}^N \log p(x^{(n)} ; \, \theta^{(i)}). \]
+
+As a simple example, let us apply the above recipe to the Naive Bayes model in section~\ref{naivebayes}, with $K=2$:
+\begin{enumerate}
+\item E-step: for each $n = 1, \dots, N$, calculate
+% \begin{align*} p(z \given x^{(n)} ; \ \theta^{(t)}) = \frac{p(\boldx^{(n)}, z ; \ \theta^{(t)})}{\sum_{z' \in \{0, 1\}}p(x^{(n)} , z'; \ \theta^{(t)})} = \frac{(\mu^{(t)})^z(1-\mu^{(t)})^{1-z}\prod_{d=1}^D \pi^{(t)}_{z, x_d^{(i)}}}{(1-\mu^{(t)}) \prod_{d=1}^{D} \pi^{(t)}_{0,x_d^{(i)}} + \mu^{(t)} \prod_{d=1}^{D} \pi^{(t)}_{1,x_d^{(i)}}}
+% \end{align*}
+\begin{align*} p(z \given x^{(n)} ; \ \theta^{(i)}) = \frac{p(x^{(n)}, z ; \ \theta^{(i)})}{\sum_{z' \in \{1, 2\}}p(x^{(n)} , z'; \ \theta^{(i)})} = \frac{(\mu_1^{(i)})^{\ident[z = 1]} (1-\mu_1^{(i)})^{\ident[z=2]}\prod_{t=1}^T \pi^{(i)}_{z, x_t^{(n)}}}{(\mu_1^{(i)}) \prod_{t=1}^{T} \pi^{(i)}_{1,x_t^{(n)}} + (1-\mu_1^{(i)}) \prod_{t=1}^{T} \pi^{(i)}_{2,x_t^{(n)}}}.
+\end{align*}
+Note that above we have written the prior over $z$ in terms of a single parameter $\mu_1$, since we must have $\mu_2 = 1 - \mu_1$.
+
+\item M-step: The expected complete data likelihood is given by 
+\begin{align*}
+Q(\theta, \theta^{(i)})&= \sum_{n=1}^N \sum_{z} p(z \given x^{(n)} ; \ \theta^{(i)})( \log p(x^{(n)} \given z^{} ;\ \pi ) + \log p( z^{} ;\ \mu_1)) 
+\end{align*}
+
+To maximize the above with respect to $\mu_1$, we can differentiate and set the resulting expression to zero 
+% \begin{align*}
+% \frac{\partial Q(\theta, \theta^{(i)})}{\partial \mu_1} = 0 &\implies \sum_{n=1}^N \sum_z p(z \given x^{(n)} ; \ \theta^{(i)}) \frac{z-\mu}{1-\mu} = 0 \\ 
+% &\implies \sum_{i=1}^N \frac{q^{(i)} - \mu}{1-\mu} = 0 \\
+% &\implies \mu^{(t+1)} = \frac{1}{N}\sum_{i=1}^N q^{(i)}
+% \end{align*}
+% \begin{align*}
+% \frac{\partial Q(\theta, \theta^{(i)})}{\partial \mu_1} = \frac{\partial}{\partial \mu_1} p(z=1 \given x^{(n)} \param \theta^i) \mu_1 +  p(z=2 \given x^{(n)} \param \theta^i) (1-\mu_1) = 0 &\implies \sum_{n=1}^N \sum_z p(z \given x^{(n)} ; \
+\begin{align*}
+\frac{\partial Q(\theta, \theta^{(i)})}{\partial \mu_1} &= \frac{\partial \sum_{n} \sum_{z} p(z \given x^{(n)} \param \theta^i) \log \mu_1^{\ident[z=1]} (1-\mu_1)^ {\ident[z=2]}}{\partial \mu_1}   = 0 \\
+&\implies \frac{\sum_{n=1}^N \sum_z p(z \given x^{(n)} ; \ \theta^{(i)}) \ident[z=1]}{\mu_1} = \frac{\sum_{n=1}^N \sum_z p(z \given x^{(n)} ; \ \theta^{(i)}) \ident[z=2]}{1-\mu_1} \\ 
+&\implies \mu_1 (\sum_{n=1}^N \sum_z p(z \given x^{(n)} ; \ \theta^{(i)})) = \sum_{n=1}^N \sum_z p(z \given x^{(n)} ; \ \theta^{(i)}) \ident[z=1] \\
+&\implies \mu_1^{(i+1)} = \frac{\sum_{n=1}^N \sum_z p(z \given x^{(n)} ; \ \theta^{(i)}) \ident[z=1]}{N} = \frac{\sum_{n=1}^N q^{(n)}_1}{N},
+\end{align*}
+where $q^{(n)}_1 = \sum_{z} p(z \given x^{(n)} \param \theta^{(i)}) \ident[z = 1] = \E_{p(z \given x^{(n)} \param \theta^{(i)})} \ident[z=1]$.
+%For conciseness, let $q^{(n)} = \E_{p(z \given \boldx^{(n)} \param \theta^i)}[z]$.
+(We can verify that the above is indeed the maximum since $\frac{\partial^2 Q(\theta, \theta^{(i)})}{\partial \mu_1^2} < 0$). A similar derivation for $\pi_{z,v}$ yields
+% \begin{align*}
+% \pi_{z,k}^{(t+1)} = \frac{\sum_{i=1}^N q_{z}^{(i)}\sum_{d=1}^D \ind[x^{(i)}_d = k] / D}{\sum_{i=1}^N q_z^{(i)}}
+% \end{align*}
+\begin{align*}
+\pi_{z,v}^{(i+1)} = \frac{\sum_{n=1}^N q^{(n)}_z \sum_{t=1}^T \ind[x^{(n)}_t = v] / T}{\sum_{n=1}^N q^{(n)}_z}.
+\end{align*}
+%where $q_1^{(i)} = q^{(i)}, q_0^{(i)} = 1- q^{(i)}$.
+Note that these updates are analogous to the maximum likelihood parameters of a Naive Bayes model in the supervised case, except
+that the empirical counts  $\sum_{i=1}^N \ind[z^{(n)} = z]$ have been replaced with the \emph{expected counts} $\sum_{i=1}^N q_z^{(n)}$ under the posterior distribution. 
+\end{enumerate}
+
+
+Let us now consider using EM to learn the parameters of the RNN model introduced at the end of Section~\ref{sec:catlatmodel}. Here, the E-step is similar to the Naive Bayes model and follows straightforwardly from Bayes' rule:
+% \begin{align*}
+% p(z \given \boldx^{(i)}; \ \theta^{(t)}) =  \frac{p(\boldx^{(i)}, z ; \ \theta^{(t)})}{\sum_{z' \in \{0, 1\}}p(\boldx^{(i)} , z'; \ \theta^{(t)})} = \frac{(\mu^{(t)})^z(1-\mu^{(t)})^{1-z} p(\boldx^{(i)} \given z ; \ \theta^{(t)})}{(1-\mu^{(t)}) p(\boldx^{(i)} \given z = 0 ; \ \theta^{(t)}) + \mu^{(t)} p(\boldx^{(i)} \given z = 1; \ \theta^{(t)})}
+% \end{align*}
+\begin{align*} p(z \given x^{(n)} ; \ \theta^{(i)}) = \frac{p(x^{(n)}, z ; \ \theta^{(i)})}{\sum_{z' \in \{1, 2\}}p(x^{(n)} , z'; \ \theta^{(i)})} = \frac{(\mu_1^{(i)})^{\ident[z = 1]} (1-\mu_1^{(i)})^{\ident[z=2]}\prod_{t=1}^T p(x_t^{(n)} \given x_{<t}, z \param \theta^{(i)})}{\sum_{z'\in\{1,2\}} (\mu_1^{(i)})^{\ident[z' = 1]} (1-\mu_1^{(i)})^{\ident[z'=2]} \prod_{t=1}^{T} p(x_t^{(n)} \given x_{<t}, z' \param \theta^{(i)})}.
+\end{align*}
+Unlike with Naive Bayes, however, there is no closed-form update for the M step.\footnote{A closed-form update
+exists for $\mu$ but not for the RNN parameters.} In this case, we can perform gradient-based optimization,
+\[ \theta^{(i+1)} = \theta^{(i)} + \eta \nabla_\theta Q(\theta, \theta^{(i)}),\]
+where $\eta$ is the learning rate and the gradient is given by
+\[ \nabla_\theta Q(\theta, \theta^{(i)}) = \sum_{i=1}^N \E_{p(z \given x^{(n)} \param \theta^{(i)})} [\nabla_{\theta} \log p(x^{(n)}, z \param \theta)].\]
+This variant of EM is sometimes referred to  as \emph{generalized expectation maximization}  \citep{dempster77em,neal1998,Murphy:2012:MLP:2380985}.
+Note that the above expression is in fact the same as the gradient of the log marginal likelihood from the previous section, i.e. $\nabla_\theta Q(\theta, \theta^{(i)}) = \nabla_\theta L(\theta)$. Therefore, generalized
+EM is equivalent to directly performing gradient ascent on the log marginal likelihood. This connection between 
+EM and gradient ascent on the log marginal likelihood has been noted in the literature before \citep{salak2003,kirk2010,sutton2012introduction}, and is perhaps unsurprising given that backpropagation on the log marginal likelihood implicitly performs posterior inference \citep{eisner2016}. 
+
+The connection between generalized EM and gradient ascent on the log marginal likelihood is particularly relevant to deep generative models, which will generally not admit an exact M-step. Practically speaking, we may avoid manually calculating the posteriors in the E-step and then taking gradient steps in $Q(\theta, \theta^{(i)})$, and instead take gradient steps directly on $\log p(x \param \theta)$; this is made especially convenient with automatic differentiation tools.\footnote{Note, though, that taking gradient steps to maximize $\log p(x \param \theta)$ is only equivalent to doing a \textit{single} gradient step during the $M$-step of generalized EM, and we are not guaranteed that the log marginal will increase monotonically as in standard EM.} For example, when training a deep
+Hidden Markov Model (HMM) as described in Section~\ref{sec:structlatmodel},  we can use the forward (or backward) algorithm to calculate $\log p(x \param \theta)$, and call backpropagation
+on the resulting value, instead of manually implementing the backward (or forward) algorithm to obtain the posteriors.\footnote{See \citet{kong2016segrnn}, \citet{yu2016online,yu2017noisy} and \citet{wiseman2018learning} for concrete examples of performing direct marginalization over latent variables in deep generative models.} 
+Similarly, to train Probabilistic Context-Free Grammars (PCFG) with neural parameterizations of rule probabilities, we can run the inside algorithm to calculate
+the log marginal likelihood and call backpropagation on the resulting value instead of manually implementing the outside algorithm.
+
+
+Finally, we note that the EM algorithm can in general be been seen as performing coordinate ascent
+on a lower bound on the log marginal likelihood~\citep{bishop2006prml}. This view (elaborated further in the next section)
+will become useful when considering cases where posterior inference is \textit{intractable}, 
+and will motivate \emph{variational inference}---a class of methods which uses approximate but tractable posteriors in place of the true posterior.
+
+\subsection{Variational Inference}\label{vi}
+So far we have considered models in which posterior inference (or equivalently, calculation of log marginal likelihood) is tractable either via enumeration or dynamic programming. Now we consider cases in which posterior inference is intractable. Variational inference \citep{hinton1993,Jordan1999} is a technique for approximating an intractable posterior distribution
+$p(z \given x \param \theta)$ with a tractable surrogate. In the context of learning the parameters of a latent variable model, variational inference can be used in optimizing a lower bound on the log marginal likelihood that involves only an \textit{approximate} posterior over latent variables, rather than the exact posteriors we have been considering until now.
+
+We begin by defining
+a set of distributions $\mathcal{Q}$, known as the \textit{variational family}, whose elements are 
+distributions $q(z \param \lambda)$ parameterized by $\lambda$. That is, $\mcQ$ contains distributions over our latent variables $z$.
+We will use $\mathcal{Q}$ to denote the entire variational family, and $q(z \param \lambda) \in \mathcal{Q}$
+to refer to a particular variational distribution within the variational family, which is picked out by $\lambda$.
+Let us assume that $z$ is continuous. We now derive a lower bound on the marginal log-likelihood $\log p(x \param \theta) = \log \int_z p(x, z \param \theta) dz$ that makes use of a $q(z \param \lambda)$ distribution.
+
+We can lower bound the log marginal likelihood as follows:
+\begin{align*}
+\log p(x \param \theta) &= \int q(z \param \lambda) \log p(x \param \theta) \, dz && \text{(expectation of non-random quantity)} \\
+&= \int q(z \param \lambda) \log \frac{p(x, z \param \theta)}{p(z \given x \param \theta)} \, dz && \text{(rewriting $p(x\param \theta)$, but see below)} \\
+&= \int q(z \param \lambda) \log \left( \frac{p(x, z \param \theta)}{q(z \param \lambda)} \frac{q(z \param \lambda)}{p(z \given x \param \theta)} \right) \, dz && \text{(multiplying by 1)} \\
+&= \int  q(z \param \lambda) \log \frac{p(x, z \param \theta)}{q(z \param \lambda)} \, dz + \int q(z \param \lambda)  \log \frac{q(z \param \lambda)}{p(z \given x \param \theta)} \, dz && \text{(distribute $\log$)} \\
+&= \int q(z \param \lambda) \log \frac{p(x, z \param \theta)}{q(z \param \lambda)} \, dz + \KL[q(z \param \lambda)  \, \Vert \, p(z \given x \param \theta)]  && \text{(definition of KL divergence)} \\
+&= \E_{q(z \param \lambda)} \log \frac{p(x, z \param \theta)}{q(z \param \lambda)} \quad \ + \KL[q(z \param \lambda)  \, \Vert \, p(z \given x \param \theta)] && \text{(definition of expectation)} \\
+&= \ELBO(x, \theta, \lambda) \qquad \qquad  \, + \KL[q(z \param \lambda)  \, \Vert \, p(z \given x \param \theta)] && \text{(definition of ELBO)} \\
+&\geq \ELBO(x, \theta, \lambda) && \text{(KL always non-negative)}
+%\log p(\boldx \param \theta) &= \log \sum_{\bol\, dz} p(\boldx, \boldz \param \theta) \\
+%&= \log \sum_{\boldz} p(\boldx, \boldz \param \theta) \frac{q(\boldz \param \lambda)}{q(\boldz \param \lambda)} \\
+%&= \log \E_{q(\boldz \param \lambda)}\Big[\frac{p(\boldx, \boldz \param \theta)}{q(\boldz \param \lambda)}\Big] \\
+%&\ge \E_{q(\boldz \param \lambda)}\Big[\log \frac{p(\boldx, \boldz \param \theta)}{q(\boldz \param \lambda)}\Big] = \ELBO(\boldx, \theta, \lambda)
+\end{align*}
+
+The above derivation shows that $\log p(x \param \theta)$ is equal to a quantity called the \emph{evidence lower bound}, or ELBO, plus the KL divergence between $q(z \param \lambda)$ and the posterior distribution $p(z \given x \param \theta)$. Since the KL divergence is always non-negative, the ELBO is a lower-bound on  $\log p(x \param \theta)$, and it is this quantity that we attempt to maximize with variational inference. Before discussing the ELBO in more depth, we note that the above derivation requires that the support of the variational distribution lie within the support of the true posterior, i.e., $p(z \given x \param \theta) = 0 \implies q(z \param \lambda) = 0$ for all $z$.\footnote{Otherwise, the second equality would have a division by zero. In contrast, we can have $q(z \param \lambda) = 0$ and $p(z \given x \param \theta) > 0$ for some $z$, since the integral remains unchanged if we just integrate over the set $E = \{z :  q(z \param \lambda) >0\}.$} 
+
+The form of the ELBO is worth looking at more closely. First, note
+that it is a function of $x, \theta, \lambda$, and lower bounds the log marginal likelihood $\log p(x \param \theta)$ for any $\lambda$. The bound is tight
+if the variational distribution equals the true posterior, i.e. $q(z \param \lambda ) = p(z \given x \param \theta)$ $\forall z$ $\implies \log p(x \param \theta) = \ELBO(x, \theta, \lambda)$. 
+It is also immediately evident that 
+\begin{align*}
+\ELBO(x, \theta, \lambda) = \log p(x \param \theta) - \KL[q(z \param \lambda)  \, \Vert \, p(z \given x \param \theta)].
+\end{align*}
+%Moreover, since $\log p(x \param \theta)$ is not a function of $q(z \param \lambda)$, we see that maximizing the ELBO is equivalent to \textit{minimizing} the KL divergence between $q(z \param \lambda)$ and the true posterior distribution $p(z \given x \param \theta)$ (c.f., \citet{Blei2017}).
+
+In some scenarios the model parameters $\theta$ are given (and thus fixed), and the researcher is tasked with finding the best variational approximation to the true posterior. Under this setup, $\log p(x \param \theta)$ is a constant and therefore maximizing the $\ELBO$ is equivalent to minimizing $\KL[q(z \param \lambda)  \, \Vert \, p(z \given x \param \theta)]$. 
+However for our purposes we are more interested in learning the generative model parameters $\theta$.
+
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.25]{pics/vi.png}
+    \caption{Illustration of variational inference. $\mathcal{D}$ represents all possible distributions
+    over $z$, and $\mathcal{Q}$ represents the variational family with free parameters $\lambda$. Variational inference finds the distribution within $\mathcal{Q}$ that is closest to $p(z \given x \param \theta)$
+    in the reverse KL sense, i.e. $\KL[q(z \param \theta) \Vert p(z \given x \param \theta)]$. In the above this  distribution is denoted as $q(z \param \lambda^\star)$.}
+    \label{fig:vi}
+\end{figure}
+
+The ELBO over the entire dataset is given by
+\[ \sum_{n=1}^N \ELBO(x^{(n)}, \theta, \lambda^{(n)}) = \sum_{n=1}^N \E_{q(z \param \lambda^{(n)})}\Big[\log \frac{p(x^{(n)}, z \param \theta)}{q(z \param \lambda^{(n)})}\Big]  \]
+where we have variational parameters $\lambda^{(n)}$ for each data point $x^{(n)}$. It is clear that the aggregate ELBO lower bounds the log likelihood of the training corpus (i.e. $\sum_{n=1}^N \log p(x^{(n)} \param \theta)$. It is this aggregate ELBO that we wish to maximize to train our model.
+
+\subsubsection{Maximizing the ELBO}
+One possible strategy for maximizing the aggregate ELBO is coordinate ascent, where we 
+maximize the objective with respect to the $\lambda^{(n)}$'s keeping $\theta$ fixed, then maximize 
+with respect to $\theta$ keeping the $\lambda^{(n)}$'s fixed. In particular, we arrive at the following:
+
+\begin{enumerate}
+\item Variational E-step: For each $n = 1, \dots, N$, maximize the ELBO for each $x^{(n)}$ holding $\theta^{(i)}$ fixed
+\[ \lambda^{(n)} = \argmax_{\lambda} \ELBO(x^{(n)}, \theta^{(i)}, \lambda) = \argmin_{\lambda}
+\KL[q(z \param \lambda^{(n)})  \, \Vert \, p(z \given x^{(n)} \param \theta^{(i)})], \]
+where the second equality holds since $\log p(x \param \theta^{(i)})$ is a constant with respect to the $\lambda^{(n)}$'s.
+\item Variational M-step: Maximize the aggregated ELBO with respect to $\theta$ holding the $\lambda^{n}$'s fixed
+\[ \theta^{(i+1)} = \argmax_{\theta} \sum_{n=1}^N \ELBO(x^{(n)}, \theta^{}, \lambda^{(n)}) = 
+\argmax_{\theta} \sum_{n=1}^N \E_{q(z \param \lambda^{(n)})}[\log p(x^{(n)}, z \param \theta)],  \]
+where the second equality holds since the $\E_{q(z \param \lambda^{(n)})}[-\log q(z \param \lambda^{(n)})]$
+portion of the ELBO is constant with respect to $\theta$.
+\end{enumerate}
+This style of training is also known as \emph{variational expectation maximization} \citep{neal1998}. In variational EM,
+the E-step, which usually performs exact posterior inference, is instead replaced with variational inference which finds the best\footnote{In the ``reverse KL" sense, i.e. $\KL[q(z \param \lambda)  \, \Vert \, p(z \given x \param \theta)]$.} variational approximation to the true posterior. The E-step is illustrated in Figure~\ref{fig:vi}. The M-step maximizes the expected complete data likelihood where the expectation is taken with respect to the variational posterior.\footnote{Yet another variant of EM is \emph{Monte Carlo Expectation Maximization} \citep{wei1990mcem}, which obtains samples from the posterior in the E-step and maximizes the Monte Carlo estimate of the complete data likelihood in the M-step. In deep generative models sampling from the true posterior requires expensive procedures such as MCMC, although there has been some work on combining
+variational inference with Hamiltonian Monte Carlo \citep{Salimans2015,hoffman2017}.}
+
+If we consider the case where the variational family is flexible enough to include the true posterior,\footnote{That is, for all $x$ there exists $\lambda_x$ such that $q(z \param \lambda_x) = p(z \given x \param \theta)$ for all $z$.} then it is clear that the above reduces to the classic EM algorithm, since in the first step $\KL[q(z \param \lambda^{(n)})  \, \Vert \, p(z \given x^{(n)} \param \theta^{(i)})]$ is minimized when $q(z \param \lambda^{(n)})$ equals the true posterior.
+Therefore, we can view EM as performing coordinate ascent on the ELBO where the variational family is arbitrarily
+flexible. Of course, this case is uninteresting since we have assumed that exact posterior inference is
+intractable. We are therefore interested in choosing a  variational family that is flexible enough
+and at the same time allows for tractable optimization.  
+
+In practice, performing coordinate ascent on the entire dataset is usually too expensive. The variational E-step can instead be performed over mini-batches.
+As with generalized EM, the M-step can also be modified to perform gradient-based
+optimization. It is also possible to perform the E-step only approximately, again using gradient-based optimization. This style of approach leads to a class of methods called \emph{stochastic variational inference (SVI)} \citep{Hoffman2013}. Concretely, 
+for each $x^{(n)}$ in the mini-batch (of size $B$) 
+we can randomly initialize $\lambda_0^{(n)}$ and 
+perform gradient ascent on the ELBO with respect to $\lambda$ for $K$ steps,
+\[ \lambda_{k}^{(n)} = \lambda_{k-1}^{(n)} + \eta \nabla_\lambda \ELBO(x^{(n)}, \theta, \lambda^{(n)}_k) \,\,\,\,\,\,\, k = 1, \dots, K \]
+Then the M-step, which updates $\theta$, proceeds with the variational parameters $\lambda_K^{(1)}, \dots,\lambda_K^{(B)})$ held fixed
+\[ \theta^{(i+1)} = \theta^{(i)} + \eta \nabla_\theta \sum_{n=1}^B \E_{q(z \given \lambda_K^{(n)})}[\log p(x^{(n)}, z \param \theta^{(i)})]\]
+
+In general, variational inference is a rich field of active research, and we have only covered a small portion of it in this section. We refer the reader to \cite{Wainwright2008}, \cite{Blei2017}, and \cite{Zhang2017} for further reading.
+
+\section{Deep Inference}\label{deepinf}
+In the previous sections we have discussed two ways of performing inference---that is, of calculating posterior distributions. We have either calculated the exact posterior distribution $p(z \given x \param \theta)$ from its definition (i.e., $\frac{p(x, z \param \theta)}{p(x \param \theta)}$) in the case where doing so is tractable, or we have formed approximate posterior distributions $q(z \param \lambda)$ by optimizing variational parameters $\lambda$ so as to make $q(z \param \lambda)$ as close to the true posterior as possible. In this section we discuss a third alternative, whereby we simply train a neural network to \textit{predict} variational parameters $\lambda$, rather than arriving at $\lambda$ by optimizing the ELBO with respect to them. We refer to this latter strategy as ``deep inference.''
+
+\subsection{Amortized Variational Inference and Variational Autoencoders}\label{avi}
+Let us recall the variational expectation maximization algorithm from section~\ref{vi}. The variational E-step requires that we find the best variational parameters $\lambda^{(n)}$ for each $x^{(n)}$.
+Even in mini-batch settings, this optimization procedure can be expensive, especially if a closed-form update is not available, which is typical in deep generative models. In such cases, one could rely on iterative methods to find approximately optimal variational parameters, as in SVI (see the previous section), but this may still be prohibitively expensive; indeed, each gradient calculation $\nabla_\lambda\ELBO(x^{(n)}, \theta, \lambda)$ requires backpropagating gradients through the generative model.
+
+As an alternative, one could \emph{predict} the variational parameters 
+by applying a trained neural network, called an \emph{inference network},\footnote{Also referred to a \textit{recognition network} or an \emph{encoder}.} to the input $x^{(n)}$ for which we would like to calculate an approximate posterior:
+\[ \lambda^{(n)} = enc(x^{(n)} \param \phi). \]
+The inference network is trained to perform variational inference for all the data points, i.e.
+\[ \max_{\phi} \sum_{n=1}^{N} \ELBO(x^{(n)}, \theta, \enc(x^{(n)} \param \phi))\]
+Importantly, the same encoder network (with parameters $\phi$) can be used for all $x^{(n)}$ we are interested in, and it is therefore unnecessary to optimize separate $\lambda^{(n)}$ for each $x^{(n)}$ we encounter. 
+This style of inference is
+also known as \emph{amortized variational inference} (AVI), as the task of performing  approximate posterior inference is \emph{amortized} across the entire dataset through the shared encoder. AVI is usually much faster than both SVI and traditional VI, as one can simply run the inference network over $x^{(n)}$ to obtain the variational parameters, which should approximate the true posterior well if the inference network is sufficiently expressive and well-trained.
+
+%\subsection{Summary}
+%Table~\ref{tab:summary} summarizes the difference between the different methods.
+%Considering only a single data point for illustrative purposes,
+%all methods can roughly be seen as performing coordinate ascent on the following objective 
+%\[ \mathcal{M}(x, \theta, q) =  \E_{q(z)}\Big[\log \frac{p(x, z \param \theta)}{q(z)}\Big]\]
+%which, like the ELBO, lower bounds $\log p(x \param \theta)$ as long as the support of $q(z)$ is within the support of $p(z \given x \param \theta)$.
+%This objective is slightly different from the $\ELBO$ since 
+%for full generality we have replaced $q(z \param \lambda)$ (in the ELBO) with $q(z)$, which represents all distributions over $z$ (i.e. not necessarily restricting ourselves to the variational family parameterized by $\lambda$).
+
+
+%Coordinate ascent proceeds by first optimizing the above with respect to $q$ (note that this optimization is in \emph{function space}). Under the terminology from EM, this corresponds
+%to the ``E-step". If posterior inference is tractable (as in EM) 
+%we can exactly perform this maximization by setting $q(z) = p(z \given x \param \theta)$. Otherwise %we can restrict ourselves to a variational
+%family $\mathcal{Q}$ with free parameters $\lambda$, leading to the following optimization problem
+%\[ \argmax_{q(z) \in \mathcal{Q}} \mathcal{M}(x, \theta, q) = \argmax_{\lambda} \ELBO(x, \theta, \lambda) \]
+%This recovers variational inference. The above optimization can also be performed approximately
+%with stochastic gradient ascent where $\lambda_0$ is randomly initialized, i.e. for $k=1, \dots, K$
+%\[ \lambda_{k} = \lambda_{k-1} + \eta \nabla_\lambda \ELBO(x, \theta, \lambda_{k-1})  \]
+%which corresponds to stochastic variational inference \citep{Hoffman2013}. Finally, in amortized variational inference we have 
+%\[ \lambda = enc(x, \param \phi), \,\,\,\,\,\,\,\,\,\, \phi = \phi + \eta \nabla_\phi \ELBO(x, \theta, enc(x \param \phi))\]
+
+\begin{table}[]
+    \centering
+    \begin{tabular}{l l l }
+    \toprule
+        Method  & E-step & M-step \\
+    \midrule
+         Expectation Maximization & Exact Posterior: $q(z) = p(z \given x \param \theta)$ & Exact \\
+         Log Marginal Likelihood & Exact Posterior: $q(z) = p(z \given x \param \theta)$ & Gradient \\
+         Variational EM & Variational Inf: $q(z \param \lambda), \,\,\,\, \lambda = \argmax_{\lambda} \ELBO(x, \theta, \lambda)$ & Exact/Gradient \\
+         Stochastic Variational EM & Stochastic VI: $q(z \param \lambda), \,\,\,\, \lambda = \lambda + \eta \nabla_\lambda \ELBO(x, \theta, \lambda)$ & Gradient\\
+         Variational Autoencoder & Amortized VI: $q(z \param \lambda), \,\,\,\, \lambda = enc(x \param \phi)$ & Gradient \\
+         \bottomrule
+    \end{tabular}
+    \caption{Overview of the different optimization methods.}
+    \label{tab:summary}
+\end{table}
+
+
+%\subsection{Variational Autoencoders}\label{vae}
+
+\emph{Variational autoencoders (VAEs)} \citep{Kingma2014,Rezende2014,Mnih2014} are a family of 
+deep generative models where the variational parameters are predicted from a deep inference network
+over the input, in the way just described. The \emph{autoencoder} part of the name stems from the fact that for generative models that factorize as  $p(x, z \param \theta) = p(x \given z \param \theta)p(z \param \theta)$, we can rearrange the ELBO as follows:
+\begin{align} \label{eq:vaeelbo}
+\ELBO(x, \theta, \phi) &= \E_{q(z \given x \param \phi )} \Big [\log \frac{p(x, z \param \theta)}{q(z \param \phi)}\Big] \nonumber \\
+&= \E_{q(z \given x \param \phi )} \Big[ \log \frac{p(x \given z \param \theta) p(z \param \theta)}{q(z \param \phi)}\Big] \nonumber \\ 
+&= \E_{q(z \given x \param \phi )}[\log p(x \given z \param \theta)] - \KL[q(z \given x \param \phi)  \Vert  p(z \param \theta)].
+\end{align}
+
+Above, for brevity we have written $ \ELBO(x, \theta, \phi)$ in place of $\ELBO(x, \theta, enc(x \param \phi))$, and $q(z \given x \param \phi)$ in place of $q(z \param enc(x \param \phi))$, and we will use this notation going forward. Note that the first term in the $\ELBO$ is the expected reconstruction likelihood of $x$ given the latent variables $z$, which is roughly equivalent to an autoencoding objective,
+and the second term can be viewed as regularization term that pushes the variational distribution to be similar to the prior.
+
+In the standard VAE setup, the inference network and the generative model are jointly trained by maximizing the ELBO with gradient ascent:
+\begin{align*}
+\theta^{(i+1)} &= \theta^{(i)} + \eta \nabla_{\theta} \ELBO(x^{(n)}, \theta^{(i)}, \phi^{(i)}) \\
+\phi^{(i+1)} &= \phi^{(i)} + \eta \nabla_{\phi} \ELBO(x^{(n)}, \theta^{(i)}, \phi^{(i)}).
+\end{align*}
+The above updates are for a single data point, but in practice mini-batches are used. Note that unlike 
+the coordinate ascent-style training from previous section, $\theta$ and $\phi$ are trained
+together end-to-end. In the next subsection, we will illustrate VAE training in more depth using a simple text example. Table~\ref{tab:summary} summarizes the different optimization methods
+we have encountered so far. [TODO: desribe the table more]
+
+\subsection{Training a Text VAE}\label{app}
+Let us revisit the model described in Section~\ref{sec:reallatmodel} and see how it may be trained with a VAE. For simplicity, we will fix the mean and variance of the prior distribution over $\boldz$, and thereby arrive at the following generative process:
+\begin{enumerate}
+    \item Sample $\boldz \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ with $\boldz \in \reals^d$.
+    \item Sample $x \sim p(x \given \boldz \param \theta)$, where $p(x \given \boldz \param \theta)$ is parameterized with an RNN, as in Section~\ref{sec:reallatmodel}.
+\end{enumerate}
+We now define the variational family $\mathcal{Q}$ to contain Gaussian distributions with diagonal covariance matrices. That is, we define $q(\boldz \param \lambda) = \mcN(\boldz; \bmu, \mathrm{diag}(\bsigma^2))$, where
+$\lambda = [\boldsymbol{\mu}, \boldsymbol{\sigma^2} ] = enc(\mathbf{x} \param \phi)$, and where $\bmu \in \reals^d$ and $\bsigma^2 \in \reals_{\geq 0}^d$. 
+A popular parameterization for $enc(x \param \phi)$ is 
+\begin{align*}
+    \boldh = \MLP(x) & & \boldsymbol{\mu} = \mathbf{W}_1 \boldh + \boldb_1  && \boldsymbol{\sigma}^2 = \exp(\mathbf{W}_2 \boldh + \boldb_2 ).
+\end{align*} 
+
+\subsubsection{Maximizing the ELBO and the Reparameterization Trick}
+Given the above choice of variational family and approach to predicting $\lambda$, we may now attempt to maximize the ELBO with respect to $\theta$ and $\phi$. The gradient of the ELBO with respect to $\theta$ is given by
+\[\nabla_\theta \ELBO(x, \theta,\phi) = \E_{q(\boldz \given x \param \phi)} [\nabla_\theta \log p(x \given \boldz \param \theta)].  \]
+The expectation in the gradient above is typically estimated with Monte Carlo samples, and one sample is often sufficient.
+
+The gradient of the ELBO with respect to $\phi$ is
+\[ \nabla_\phi \ELBO(x, \theta, \phi) = \nabla_\phi \E_{q(\boldz \given x \param \phi)} [ \log p(x \given \boldz \param \theta)] + \nabla_\phi \KL[q(\boldz \given x \param \phi)  \Vert  p(\boldz)].\]
+
+Beginning with the second term, the KL divergence between a diagonal Gaussian and the standard Gaussian has an analytic solution given by
+\[\KL[q(\boldz \given x \param \phi) \Vert p(\boldz)]  = -\frac{1}{2}\sum_{j=1}^d (\log \sigma^2_j - \sigma^2_j - \mu_j^2 + 1), \]
+and therefore $\nabla_\phi \KL[q(\boldz \given x \param \phi)  \Vert  p(\boldz)]$ is easy to calculate.
+Calculating $\nabla_\phi \E_{q(\boldz \given x \param \phi)} [ \log p(x \given \boldz \param \theta)]$, however, is more complicated, since the expectation itself depends on $\phi$. In the general case, we can use the standard score function gradient estimator  \citep{Glynn1987,Williams1992,Fu2006}
+\begin{align*}
+\nabla_\phi \E_{q(\boldz \given x \param \phi)} [ \log p(x \given \boldz \param \theta)] &= 
+\nabla_\phi \int  \log p(x \given \boldz \param \theta) q(\boldz \given x \param \phi) d\boldz \\
+&= 
+\int  \log p(x \given \boldz \param \theta) \nabla_\phi  q(\boldz \given x \param \phi) d\boldz \\
+&= 
+\int  \log p(x \given \boldz \param \theta)   q(\boldz \given x \param \phi)\nabla_\phi  \log q(\boldz \given x \param \phi) d\boldz \\
+&=\E_{q(\boldz \given x \param \phi)} [\log p(x \given \boldz \param \theta)\nabla_\phi \log q(\boldz \given x \param \phi)],
+\end{align*}
+where the expectation on the right side of the equality is approximated with Monte Carlo samples. However, the variance of this estimator is often too high even with variance-reducing baselines. It has accordingly become popular to instead exploit the fact that by choosing our variational family to contain Gaussian distributions, the variational family is \emph{reparameterizable}~\citep{Kingma2014,Rezende2014,glasserman2013monte}. %the variational family, $q(\boldz \given x \param \phi)$ is \emph{reparameterizable}
+A \emph{reparameterizable} variational family allows us to obtain a sample from the variational posterior by sampling from a base noise distribution and applying a deterministic transformation, 
+\begin{align*} 
+\boldsymbol{\epsilon} \sim \mcN(\mathbf{0}, \mathbf{I}) &&
+\boldz = \boldsymbol{\mu} + \boldsymbol{\sigma} \boldsymbol{\epsilon},
+\end{align*}
+where $\bmu$ and $\bsigma^2$ are as usual given by our encoder network. Observe that $\boldz$ remains distributed according to $\mcN(\boldz; \bmu, \mathrm{diag}(\bsigma^2))$, but 
+we may now express the gradient with respect to $\phi$ as
+\begin{align*}
+\nabla_\phi \E_{q(\boldz \given x \param \phi)} [ \log p(x \given \boldz \param \theta)] &=
+\nabla_\phi  \E_{\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})}[\log p(x \given \boldsymbol{\mu} + \boldsymbol{\sigma} \boldsymbol{\epsilon} \param \theta)] \\
+&=  \E_{\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})}[\nabla_\phi \log p(x \given \boldsymbol{\mu} + \boldsymbol{\sigma} \boldsymbol{\epsilon} \param \theta)], 
+\end{align*}
+because the expectation no longer depends on $\phi$. We can again approximate the expectation in the gradient above with a single sample.
+
+This \emph{reparameterization trick} just discussed empirically yields much lower-variance gradient estimators and
+has been instrumental in training deep generative models with VAEs. Unfortunately, in many cases the
+variational posterior is not directly reparameterizable (e.g. if $z$ is discrete), and extending the
+reparameterization trick to other families of distributions is an active research area (see Section~\ref{reparam}).
+
+\subsubsection{Posterior Collapse}\label{posteriorcollapse}
+We now discuss an important issue that affects training Text VAEs in practice.
+Recall that in the model introduced in Section~\ref{sec:reallatmodel} the likelihood model is allowed to fully condition on the entire history:
+\begin{align*} 
+\boldh_{\boldz,t} &= \RNN(\boldh_{\boldz,t-1}, [\bolde_t, \boldz]) \\
+p(x_{t} \given x_{< t}, \boldz \param \theta) &= \softmax(\boldV \boldh_{\boldz,t-1} + \boldc)_{x_t},
+\end{align*}
+where we abstract the RNN recurrence into the function $\RNN$. 
+Let us assume, as is standard for text VAEs, that the latent vector $\boldz$ (with prior $\mathcal{N}(\mathbf{0}, \mathbf{I})$ as in
+the previous section) is concatenated with the word embedding $\bolde_t$, and then combined
+with the previous hidden state $\boldh_{\boldz, t-1}$ to produce the next hidden state $\boldh_{\boldz,t}$.
+The distribution over the next word $x_{t+1}$ is then obtained by applying an 
+affine transformation to $\boldh_{\boldz,t}$ followed by a softmax. We might hope that in such a model $\boldz$ 
+would capture global aspects of the sentence/document (e.g., the topic), while the RNN learns to model local variations 
+(e.g. placement of function words to ensure grammatically).\footnote{There has also been prior work on separating topics and syntax in the context of non-neural generative models \citep{griffiths2004,boyd2008}.} 
+
+However, \citet{Bowman2016} observe that  these types of models
+experience \emph{posterior collapse}, whereby the likelihood (i.e., reconstruction)
+model ignores the latent variable  and simply becomes a language model. That is, $x$ and $\boldz$ 
+become independent. Indeed, looking at the ELBO in Equation~\eqref{eq:vaeelbo}, we see that if $x$ can be reconstructed \textit{without} $z$, the model is incentivized to make the variational posterior approximately equal to the prior---that is, to have
+\[ \KL[q(\boldz \given x \param \phi) \Vert p(\boldz)] \approx 0\]
+regardless of how expressively one parameterizes $q(\boldz \given x \param \phi)$.  More formally, \citet{Chen2017}
+show that this phenomenon may be justified under the ``bits-back" argument: if the likelihood
+model is rich enough to model the true data distribution $p_\star(x)$ without using any information
+from $\boldz$, then the global optimum is obtained by setting 
+\begin{align*}
+    p(x \given \boldz \param \theta) &= p(x \param \theta) = p_\star(x) \\
+    p(\boldz \given x \param \theta) &=  q(\boldz \given x \param \phi) =p(\boldz).
+\end{align*}
+Since any distribution $p(x)$ can be factorized as $p(x) = p(x_1)\prod_{t=2}^T p(x_t \given x_{<t})$, it is possible that a large enough RNN can model $p_\star(x)$ without
+relying on $\boldz$. As such, to avoid posterior collapse, past work has made conditional independence assumptions and instead used multilayer perceptrons \citep{Miao2016,miao2017nvi} or convolutional networks \citep{Yang2017,Semeniuta2017,shen2018deconv} to parameterize the likelihood model.
+
+One way to mitigate posterior collapse from an optimization perspective is 
+to ``warm-up" the KL portion of the objective \citep{Bowman2016,Son2016}. In particular, 
+one maximizes
+\[ \E_{q(\boldz \given x \param \phi)}[\log p(x \given \boldz \param \phi)] - \beta  \KL[q(\boldz \given x \param \phi) \Vert p(\boldz)], \]
+where $\beta$ is gradually increased from $0$ to $1$ over training.\footnote{$\beta$-VAEs are a class of models where the multiplier $\beta$ on the KL portion of the ELBO is not necessarily $1$ \citep{higgins2017}. These models can be interpreted as the Langragian of a constrained optimization problem
+with respect to the original ELBO.
+Models trained with $\beta > 1$ have been shown to learn more \emph{disentangled}
+latent representations, and using VAE-like models to learn more disentangled/factorized representations is an active
+research area \citep{Burgess2017,kim2018dist,Chen2018vae}.} 
+Other strategies include adding auxiliary objectives which ensure that $\boldz$ is used \citep{Dieng2017,Goyal2017b,Wang2018}, randomly dropping out words during
+decoding \citep{Bowman2016}, thresholding the KL function so that some bits are ``free" \citep{Kingma2016},
+combining amortized and stochastic variational inference \citep{Kim2018},
+using skip connections \citep{dieng2018}, or working
+with distributions where the KL can be essentially a fixed hyperparameter (e.g. the von Mises--Fisher distribution with a fixed concentration parameter \citep{Guu2017,xu2018}).
+\subsubsection{Evaluation}\label{eval}
+As the ELBO always lower bounds the log marginal likelihood $\log p(x \param \theta)$, we can evaluate
+the learned generative model by evaluating the ELBO across a held-out test set. 
+We can also estimate the marginal likelihood with $K$ importance samples,
+
+\[ p(x \param \theta) = \E_{q(z \given x \param \phi)}\Big[ \frac{p(x, z \param \theta)}{q(z \given x \param \phi)} \Big] \approx  \frac{1}{K} \sum_{k=1}^K \frac{p(x, z^{(k)} \param \theta)}{q(z^{(k)} \given x \param \phi)},\]
+where the samples are from the approximate posterior.
+
+Therefore the log marginal likelihood can be estimated by
+\[ \log p(x \param \theta) = \log \E_{q(z \given x \param \phi)}\Big[ \frac{p(x, z \param \theta)}{q(z \given x \param \phi)} \Big] \approx \log   \frac{1}{K} \sum_{k=1}^K \frac{p(x, z^{(k)} \param \theta)}{q(z^{(k)} \given x \param \phi)}.\]
+The above estimator is not unbiased but under mild conditions converges almost surely to
+$\log p(x \param \theta)$ as $K \rightarrow \infty$.\footnote{If $\frac{p(x,z \param \theta)}{q(z \given x \param \phi)}$ is bounded then by the strong law of large numbers $\frac{1}{K} \sum_{k=1}^K \frac{p(x, z^{(k)} \param \theta)}{q(z^{(k)} \given x \param \phi)} \rightarrow p(x \param \theta)$ almost surely as $K \rightarrow \infty$.
+Then the continuous mapping theorem implies $\log \frac{1}{K} \sum_{k=1}^K \frac{p(x, z^{(k)} \param \theta)}{q(z^{(k)} \given x \param \phi)} \rightarrow \log p(x \param \theta)$ almost surely as $K \rightarrow \infty$.} It is also possible to maximize the above quantity directly, leading to \emph{importance weighted autoencoders} \citep{Burda2015} (see section~\ref{importancesampling}).
+\cite{Wu2017quant} further refine the estimate of the log marginal likelihood with annealed
+importance sampling \citep{neal2001}.
+
+The ELBO and the log marginal likelihood provide a quantitative estimate of the learned generative model, 
+but from a representation learning perspective these metrics may not be useful.
+Indeed, \citet{alemi2018} find that in many cases there is a family of models that achieve
+the same ELBO but have different reconstruction/KL terms.\footnote{To be precise,
+\cite{alemi2018} use the term \emph{rate} and \emph{distortion}. Distortion corresponds to the negative
+reconstruction likelihood portion of the ELBO, and rate corresponds to the $\KL [q(z \given x \param \phi) \Vert m(z)]$,
+where $m(z)$ is a \emph{variational marginal} distribution. Hence the rate is not necessarily
+equal to the KL portion of the ELBO, i.e. $\KL [q(z \given x \param \phi) \Vert p(z)]$. See the paper
+for more discussion around $m(z)$.} It is therefore often useful to report the reconstruction 
+term ($\E_{q(z \given x \param \phi)}[\log p( x \given z \param \theta)]$) and the KL term ($\KL [q(z \given x \param \phi) \Vert p(z)]$) along with the ELBO \citep{Bowman2016,Gulrajani2017,Yang2017}. The mutual information between $x$ and $z$ is also estimable though it may be computationally expensive \citep{hoffman2016elbo}.\footnote{Some works directly optimize an approximation to the mutual information
+\citep{zhao2018infovae,belghazi2018,gao2018tc}. These works typically require adversarial training.}
+
+Qualitative evaluation of the model includes inspecting samples from prior/variational posterior,
+and linearly interpolating in the latent space and evaluating samples from the interpolated latent vector.
+
+\subsection{Tightening the ELBO}\label{tightening}
+Ideally we would like the gap between $\log p(x \param \theta) $ and $\ELBO(x, \theta, \phi)$
+to be small. We have seen that the gap is equal to zero if $q(z \given x \param \phi) = p(z \given x \param \theta)$, since
+\[ \KL[q(z \given x \param \phi) \Vert p(z \given x \param \theta)] = \log p(x \given \theta) - \ELBO(x, \theta, \phi). \]
+Therefore if we are able to better approximate the true posterior, we can hope to train better
+generative models. In this section we briefly review some recent advances that attempt to
+tighten the gap.
+\subsubsection{Flows}\label{vaeflows}
+By working with richer variational families we can hope to better approximate the true posterior.
+One way to do so is through \emph{flows}, in which a sample from a simple base density (typically Gaussian) is converted into a sample from a more complex density via a series of invertible transformations, \begin{align*}
+z_0 &\sim q(z_0 \given x \param \phi) = \mathcal{N}(\boldsymbol{\mu}(x), \boldsymbol{\sigma^2}(x))\\
+z_K &= f_K \circ f_{K-1} \circ \dots \circ f_1(z_0).
+\end{align*}
+Here $z_0$ is a sample from the variational posterior as before.
+Since each $f_k$ is invertible, the log density of $z_K$ is given by the change-of-variables formula
+\begin{align*}
+\log q_K(z_K \given x \param \phi) &= \log q(z_0 \given x \param \phi) + 
+\sum_{k=1}^K \log \Big | \frac{\partial f_k^{-1}}{\partial z_{k}}\Big |  \\
+&=\log q(z_0 \given x \param \phi) - 
+\sum_{k=1}^K \log \Big | \frac{\partial f_k}{\partial z_{k-1}}\Big | 
+\end{align*}
+where $ | \frac{\partial f_k}{\partial z_{k-1}}\Big | $ is the absolute value of the determinant 
+of the Jacobian of $f_k$. (Here the parameters of $f_k$ have been subsumed into $\phi$).
+Then the ELBO using $q_K$ as the variational posterior is
+\begin{align*}
+\ELBO(x, \theta, \phi) &= \E_{q_K(z_K \given x \param \phi)} [\log p(x, z_K \param \theta) - \log q_K(z_K \given x \param \phi)] \\
+&= \E_{q(z_0 \given x \param \phi)} \Big[\log p(x, z_K \param \theta) - \log q(z_0 \given x \param \phi) + 
+\sum_{k=1}^K \log \Big | \frac{\partial f_k}{\partial z_{k-1}}\Big| \Big]\\
+\end{align*}
+The key to making flows efficient is making the determinant of the Jacobian easy to calculate.
+For example, \cite{Rezende2015} use \emph{normalizing flows} where each $f_k$ is parameterized as
+\[f_k(z_{k-1}) =  z_{k-1} + u_k h(w_k^\top z_{k-1} + b_k)\]
+where $u_k, w_k, b_k$ are learnable parameters and $h(\cdot)$ is a differentiable non-linear function with
+derivative $h'(\cdot)$. Then the matrix determinant lemma gives 
+\[ \Big| \frac{\partial f_k}{\partial z_{k-1}}\Big| = |1 + u_k^\top (h'(w_k^\top z_{k-1} + b_k) w)| \]
+which is very efficient to calculate. Other types of flows applied to VAEs include
+inverse autoregressive flows \citep{Kingma2015}, householder flows \citep{Tomczak2016hf,berg2018}, and neural autoregressive flows \citep{huang2018naf}.
+
+\subsubsection{Importance Sampling}\label{importancesampling}
+Another way to tighten the gap between the ELBO and the log marginal likelihood is through importance sampling~\citep{Burda2015}. %Noting that the expectation of the random variable $\frac{p(x, z \param \theta)}{q(z \given x \param \phi)}$ is equal to the likelihood $p(x \param \theta)$, applying Jensen's inequality yields
+To illustrate this, first note that, using Jensen's inequality, we have the following:
+\begin{align*}
+     p(x \param \theta) &= \E_{q(z \given x \param \phi)} \Big[ \frac{p(x, z \param \theta)}{q(z \given x \param \phi)}\Big] \implies 
+     \log p(x \param \theta) \ge  \E_{q(z \given x \param \phi)} \Big[\log  \frac{p(x, z \param \theta)}{q(z \given x \param \phi)}\Big].
+\end{align*}
+It is moreover clear that Jensen's inequality allows us to form an analogous inequality for \textit{any} unbiased estimator of $p(x \param \theta)$, not just $\frac{p(x, z \param \theta)}{q(z \given x \param \phi)}$. In particular, consider the following unbiased estimator, which uses multiple independent samples $z^{(1:K)} = [z^{(1)}, \dots, z^{(K)}]$ from $q(z \given x \param \phi)$:
+\[ I_K = \frac{1}{K} \sum_{k=1}^K \frac{p(x, z^{(k)} \param \theta)}{q(z^{(k)} \given x \param \phi)}. \]
+Then, using an argument analogous to the one above, and letting $q(z^{(1:K)} \given x \param \phi) = \prod_{k=1}^K q(z^{(k)} \given x \param \phi)$, we have
+\[ 
+     \log p(x \param \theta) \ge  \E_{q(z^{(1:K)} \given x \param \phi)} 
+     \Big[ \log \frac{1}{K} \sum_{k=1}^K \frac{p(x, z^{(k)} \param \theta)}{q(z^{(k)} \given x \param \phi)} \Big] = \E[\log I_K].
+     \]
+
+Moreover, \citet{Burda2015} prove that under mild conditions, we have
+\[ \log p(x \param \theta) \ge \E[\log I_K] \ge \E[\log I_{K-1}], \]
+and further, that $\lim_{K \rightarrow \infty} \E[ \log I_K] = \log p(x \param \theta)$.
+If $K=1$, we recover the vanilla VAE, and therefore optimizing the above
+objective for $K>1$ maximizes a tighter bound.
+Under this setup, $q(z \given x \param \phi)$ is viewed as an importance sampling distribution (and $\frac{p(x, z \param \theta)}{q(z \given x \param \phi)}$ the importance weights),
+and so this type of approach is known as an \emph{Importance Weighted Autoencoder (IWAE)} \citep{Burda2015}.
+
+In the general case the gradients is given by
+\begin{align*}
+    \nabla_{\theta} \E[\log I_K] &= \E_{q(z^{(1:K)} \given x \param \phi)}\Big[\sum_{k=1}^K w^{(k)} \nabla_{\theta}  \log p(x, z^{(k)} \param \theta) \Big] \\
+    \nabla_{\phi} \E[\log I_K] &= \E_{q(z^{(1:K)}  \given x \param \phi)}\Big[\sum_{k=1}^K (\log I_K - w^{(k)}) \nabla_\phi \log q(z^{(k)} \given x \param \phi)  \Big],
+\end{align*} 
+where 
+\[ w^{(k)} = \frac{p(x, z^{(k)})/q(z^{(k)} \given x \param \phi)}{\sum_{j=1}^K p(x, z^{(j)})/q(z^{(j)} \given x \param \phi)}\]
+are the normalized importance weights (see \cite{Mnih2016} for the derivation). The expectations here can again be estimated with a single sample from $q(z^{(1:K)} \given x \param \phi)$, which is equivalent to $K$ samples from $q(z \given x \param \phi)$. In the Gaussian case it is still possible to apply the reparameterization trick to the IWAE objective to derive low-variance gradient estimator for $\phi$ (see \cite{Burda2015} for the expression of reparameterized gradient estimators, which are different from score function gradient estimators shown above), and this reparameterized estimator should be used instead. Empirically IWAEs typically outperform VAEs in terms of log marginal likelihood even with a few samples \citep{Burda2015,Mnih2016}. However, the IWAE objective may hinder the training of the inference network
+by reducing the signal-to-noise ratio of the gradient estimator \citep{Rainforth2018},
+though recent work targets this issue by applying reparameterization twice \citep{tucker2018double}.
+
+These ideas have also been extended to sequential latent variable models with particle filtering \citep{maddison2017fivo,naesseth2018seqmc,le2018}. \cite{cremer2017iwae} and \cite{Domke2018} provide an alternative interpretation of IWAE as optimizing the standard ELBO but with a different variational distribution.
+
+\subsubsection{Amortization Gap}
+In VAEs we restrict the variational family to be the class of distributions whose parameters
+are obtainable by running  a parameteric model (i.e. inference network) over the input.
+This choice allows for fast training/inference but may be too strict of a restriction. (Note that
+this is usually not an issue with traditional VI which typically works with variational families that allow
+for closed-from expressions for the best $\lambda$ for a given $x$.)
+
+Letting $\lambda^\star$ be the best variational parameter for a given data point, i.e.
+\[ \lambda^\star = \argmin_\lambda \KL[q(z \given x \param \lambda) \Vert p(z \given x \param \theta)] \]
+we can break down the \emph{inference gap} (the gap between the variational posterior from the inference network and the true posterior) as follows \citep{Cremer2018}
+\begin{align*}
+    \underbrace{\KL[q(z \given x \param \phi) \Vert p(z \given x \param \theta)]}_{\text{inference gap}}  &= \underbrace{\KL[q(z \given x \param \lambda^\star) \Vert p(z \given x \param \theta)]}_{\text{approximation gap}} + \\ &\,\,\,\,\,\,\,\, \underbrace{\KL[q(z \given x \param \phi) \Vert p(z \given x \param \theta)] - \KL[q(z \given x \param \lambda^\star) \Vert p(z \given x \param \theta)]}_{\text{amortization gap}}
+\end{align*} 
+Therefore the inference gap consists of two parts: the \emph{approximation gap}, which is the  gap between the true posterior and the best possible variational posterior within $\mathcal{Q}$, and the \emph{amortization gap}, which quantifies the gap between inference network posterior and the best possible variational posterior.
+
+To reduce the approximation gap we can work with richer variational families (e.g. by applying flows),
+and to reduce the amortization gap we can better optimize $\lambda$ for each data point. \cite{Cremer2018}
+find that both approximation/amortization gaps contribute significantly to the final inference gap,
+and there has been some recent work on actively reducing the amortization gap.
+For example one could use an inference network to initialize the variational parameters and subsequently run iterative refinement (e.g. gradient ascent) to refine them \citep{Hjelm2016,Krishnan2017,Kim2018}. Alternatively, \cite{Marino2017} utilize meta-learning \citep{Andrychowicz2016} to learn to perform better
+inference. Similar ideas have also been explored in \cite{Salakhutdinov2010}, \cite{Cho2013}, \cite{Salimans2015}, and \cite{Pu2017}.
+
+\subsection{Working with Other (e.g. Discrete) Distributions}\label{otherdist}
+\subsubsection{Extending the Reparameterization Trick}\label{reparam}
+The reparameterization trick is often crucial in training VAEs as it allows us to efficiently
+obtain low-variance estimators of the gradient.  
+\cite{ruiz2016} and \cite{naesseth2017} generalize the reparameterization trick to work
+with other distributions (e.g. Gamma, Dirichlet). Of particular interest are methods that
+extend reparameterization to discrete distributions utilizing the \emph{Gumbel-Max trick}
+\citep{Papandreou2011,hazan2012,Maddison2014}. Concretely, suppose $z$
+is the one hot representation of a categorical random variable with $K$ categories and unnormalized
+scores $\alpha$, i.e.
+\[ p(z_k = 1 \param \alpha) = \frac{\alpha_k}{\sum_{i=1}^K \alpha_i}\]
+Then we can draw a sample from $p(z \param \alpha)$ by 
+adding independent Gumbel noise to the logits and finding the $\argmax$, 
+\begin{align*}
+    k &= \argmax_{i} [g_i + \log \alpha_i] \\
+    z_k &= 1, \,\,\,\, (z_i = 0 \text{ for all } i \ne k)
+\end{align*}
+where $g_i$'s are independent Gumbel noise.\footnote{We can sample from a Gumbel distribution
+by sampling a uniform random variable $u \sim \mathcal{U}[0,1]$ and applying the transformation $g = -\log (-\log u)$.} In this case we have $z \sim p(z \param \alpha)$. If we replace the $\argmax$ above with a $\softmax$ and a temperature term $\tau > 0$, 
+\[s_k =  \frac{\exp((g_k + \log \alpha_k)/\tau)}{\sum_{i=1}^K \exp((g_i + \log \alpha_i)/\tau)}\]
+we say that $s = [s_1, \dots, s_K]$ is drawn from a \emph{Gumbel-Softmax} \citep{Jang2017} or a \emph{Concrete} \citep{Maddison2017} distribution with parameters $\alpha, \tau$.
+The Gumbel-Softmax defines a distribution on the simplex $\Delta^{K-1}$, and the density is given by
+\[ p(s \param \alpha, \tau) = ( K-1)! \tau^{K-1} \prod_{k=1}^K \Big( \frac{\alpha_k s_k^{-\tau - 1}}{\sum_{j=1}^K \alpha_j s_j^{-\tau} } \Big)\]
+(See \cite{Jang2017} and \cite{Maddison2017} for the derivation).  Notably this distribution is reparameterizable by construction since we can draw a sample by (1)
+drawing $i.i.d$ Gumbel noise $g = [g_1, \dots, g_K]$, (2) transforming the noise as $(g_i  + \log \alpha_i)/\tau$, and (3) applying a softmax to the transformed logits.
+While $s$ is no longer discrete, we can anneal the temperature $\tau \rightarrow 0$ as training
+progresses and hope that this will approximate a sample from a discrete distribution.
+
+Going back to VAEs, suppose now $\alpha = enc(x \param \phi)$ and let 
+$q_\text{GS}(s \given x \param \phi, \tau)$ be the Gumbel-Softmax distribution (note that $\tau$ could in theory also be a function of $x$). If $q(z \given x \param \phi)$ is the original categorical distribution, we might hope that the gradient of the ELBO
+obtained from the Gumbel-Softmax distribution will approximate the true gradient, i.e.
+\begin{align*}
+    \nabla_\phi \E_{q(z \given x \param \phi, \tau)}\Big[\log \frac{p(x, z \param \theta)}{q(z \given x \param \phi)} \Big] & \approx \nabla_\phi \E_{q_\text{GS}(s \given x \param \phi)}\Big[\log \frac{p_\text{GS}(x,s  \param \theta, \tau)}{q_\text{GS}(s \given x \param \phi)}\Big] \\
+    &= \E_{g \sim \text{Gumbel}}\Big[ \nabla_\phi \log \frac{p_\text{GS}(x, f(g, \alpha, \tau)  \param \theta, \tau)}{q_\text{GS}( f(g, \alpha, \tau) \given x \param \phi)}\Big]
+\end{align*}
+where $f$ applies the required transformation to the Gumbel noise $g$ to obtain $s$.
+Here $p(x, z \param \theta) = p(x \given z \param \theta)p(z \param \theta)$ is the joint density under the original model while $p_\text{GS}(x, s \param \theta, \tau) = p(x \given s \param \theta)p_\text{GS}(s \param \theta, \tau)$ is the density under the new, relaxed model (see the appendix of \cite{Maddison2017} for further discussion on which components can/should be relaxed). Unlike the score function gradient estimator, the above estimator is biased and the variance
+will diverge to infinity as $\tau \rightarrow 0$. Recent work \citep{Tucker2017,Grathwohl2018} combines
+the above estimator with the standard score function estimator to obtain even lower-variance
+gradient estimators.\footnote{Some other strategies for reducing the variance of the estimator
+include Rao-Blackwellization \citep{Ranganath2014} and sophisticated control variates \citep{Mnih2014,miller2017,deng2018}.} Note that the above relaxation is
+only applicable if the generative model, which was originally defined over
+a \emph{discrete} latent space $z \in \{0, 1\}^K$ (and the observed data),
+can be relaxed to a \emph{continuous} latent space $z \in \Delta^{K-1}$. For example if $z$
+is a parse tree and $\log p(x , z \param \theta)$ uses the parse tree to define a 
+computational graph (e.g. as in Recurrent Neural Network Grammars \citep{dyer2016rnng}),
+then the techniques described above are not applicable because $p(x, z \param \theta)$
+would not make sense for non-discrete $z$.
+
+\subsubsection{Non-Gaussian Prior/Posterior Distributions}
+Here we briefly review some other distributions that have been considered in the context of VAEs.
+\cite{Johnson2016} introduce structured variational autoencoders, which
+encode structure in the latent space through probabilistic graphical models. 
+Structured VAEs have been used to 
+model latent sequences \citep{Chung2015,Fraccaro2016,Serban2017,zaheer2017latent,Krishnan2017b,liu2018hsmm}, graphs \citep{kipf2016vae,jin2018junction},  trees \citep{yin2018structvae,corro2018semi} and other structured objects \citep{kusner2017grammar,dai2018syntax}. There has also been some work on
+extending VAEs to the nonparametric Bayesian setting \citep{Tran2016GP,Goyal2017,naslinick2017,miao2017nvi,singh2017,bodin2017}, and
+the von Mises--Fisher distribution is becoming an interesting alternative
+to the Gaussian \citep{Guu2017,Davidson2018,xu2018}.
+
+Other classes of distributions that
+have been considered include mixture of Gaussians \citep{Dilokthanakul2016}, learned priors \citep{Tomczak2017,huang2017learn}, hierarchical \citep{Son2016,zhao2017hier,park2018}, and discrete \citep{Rolfe2017,vqvae} distributions.
+
+\section{Other Methods}\label{othermethods}
+In this section we briefly review some other methods that could be used to train latent variable models.
+
+\subsection{Wake-Sleep Algorithm}
+The wake-sleep algorithm \citep{hinton1995ws} is a method for training deep directed graphical models,
+and can be thought of as a precursor to variational autoencoders. The wake-sleep algorithm also makes 
+use of a \emph{recognition network} which produces an approximate posterior
+distribution over the latent variables given the data, i.e. $q(z \given x \param \phi)$. Training proceeds as follows:
+
+\begin{enumerate}
+    \item Wake phase: sample a data point $x \sim p_\star(x)$ and latent variable $\hat{z} \sim q(z \given x \param \phi)$. Take a gradient step with respect to $\theta$ to maximize the joint likelihood, 
+    \[ \theta^{(i+1)} = \theta^{(i)} + \eta \nabla_{\theta} \log p(x, \hat{z} \param \theta^{(i)})\]
+    \item Sleep phase: sample ``phantom" data from the generative model, i.e. $\hat{z} \sim p(z), \hat{x} \sim p(x \given \hat{z} \param \theta)$.  Take a gradient step with respect to $\phi$ to maximize $\hat{z}$, 
+    \[ \phi^{(i+1)} = \phi^{(i)} + \eta \nabla_{\phi} \log q(\hat{z} \given \hat{x} \param \phi^{(i)})\] 
+\end{enumerate}
+
+It is clear that the wake phase is training the generative model to maximize a Monte Carlo estimate of the expected complete data likelihood under the variational posterior, i.e. $\E_{q(z \given x \param \phi)}[\log p(x, z \param \theta)]$. Hence the wake phase is equivalent to the variational M-step.
+In the sleep-phase the recognition network is trained to maximize a Monte Carlo estimate of 
+$\E_{p(x, z \param \theta)} [\log q(z \given x \param \phi)]$, which is equivalent to minimizing
+$\KL[p(z \given x \param \theta) \Vert q(z \given x \param \phi)]$. Recall that the variational E-step
+trains the recognition network to  minimize $\KL[q(z \given x \param \phi) \Vert p(z \given x \param \theta)]$. Therefore the sleep-phase almost corresponds to the variational E-step, but the KL direction is reversed.
+We have seen before that in the variational E-step, minimizing  $\KL[q(z \given x \param \phi) \Vert p(z \given x \param \theta)]$ is equivalent to maximizing the ELBO. But this involves an expectation over $q(z \given x \param \phi)$, which is difficult to optimize, especially if the latent variable is not reparameterizable. In contrast, the sleep phase minimizes the other direction
+$\KL[p(z \given x \param \theta) \Vert q(z \given x \param \phi)]$ and therefore does not have this issue.
+
+While the wake-sleep algorithm does not maximize a lower bound on the log marginal likelihood, in practice
+it performs well \citep{hinton2006,Ba2015,Mnih2016,le2018rws}. \cite{bornschein2015} introduce the reweighted wake-sleep algorithm, which combines importance sampling with wake-sleep to further improve performance.
+
+\subsection{Reversible Neural Generative Models}\label{flows}
+Suppose $z$ and $x$ are both continuous and consider the following generative model
+\begin{align*}
+    z \sim p_z(z) && x =  f(z \param \theta)
+\end{align*}
+where $p_z(z)$ is a simple prior (e.g. Gaussian) and $x$ is obtained by applying a deterministic function $f$ to $z$.\footnote{This is in contrast to generative models
+considered so far, in which the \emph{parameters} of the distribution $p(x \given z \param \theta)$
+are given by applying $f$ to the latent variable $z$.}
+If $f$ is invertible, it is possible to evaluate $\log p(x \param \theta)$ using the change-of-variables formula,
+\[ \log p(x \param \theta)  = \log  p_z(f^{-1}(x)) + \log \Big|\frac{\partial f^{-1}(x)}{\partial x}\Big| \]
+where $ \Big|\frac{\partial f^{-1}(x)}{\partial x}\Big| $ is the absolute value of the 
+determinant of the Jacobian. 
+There has been recent work \citep{dinh2015,dinh2017,papamakarios2017, kingma2018} on applying such methods with $f$ parameterized in a way to allow for fast evaluation of the determinant (e.g. using ideas from 
+autoregressive density estimation with neural networks \citep{larochelle2011,germain2015} to make the Jacobian a triangular matrix, in which case the log determinant is simply the summation of the diagonals). Similar transformations have also been applied to variational posteriors to make them more flexible in the context of VAEs \citep{Rezende2015,Kingma2016} (see section~\ref{vaeflows}).
+\cite{chen2018ode} and \cite{grathwohl2018ffjord} introduce \emph{continuous normalizing flows}, where the discrete flow steps are mapped to continuous time and a neural network parameterizes the continuous time-dynamics via an ordinary differential equation.
+
+While deep generative models parameterized with reversible neural networks have achieved impressive results in image generation \citep{dinh2017,kingma2018}, they are unfortunately difficult to apply to language since text is typically modeled as a discrete variable. \cite{he2018} circumvent this issue by modeling pretrained word embeddings instead for unsupervised POS tagging and dependency parsing.
+
+\subsection{Generative Adversarial Networks}\label{gan}
+Let us consider a similar generative model as above, $z \sim p(z), x =  f(z \param \theta)$,
+where $f: \reals^d \to \reals^n$ is differentiable but not necessarily invertible (hence we no longer require that $d = n$). In this case we cannot easily
+evaluate $p(x \param \theta)$ using the change-of-variables formula, although the density
+can be defined as the partial derivative of the cumulative density function, 
+\[ p(x \param \theta) = \frac{\partial^n}{\partial x_1 \dots \partial x_n}\int_{\{z : f(z\param \theta) < x \}} p(z) dz \]
+\emph{Implicit probabilistic models} are generative models like the above which specify a stochastic procedure for generating samples from the model \citep{mohamed2016}. This is in contrast to \emph{prescribed} or \emph{explicit probablistic models} in which the modeler specifies an explicit parameterization of the density $p(x \param \theta)$.\footnote{The distinction between implicit/explicit generative models is therefore based on how the generative model is defined, rather than the distribution itself. For example, if $x \sim \mathcal{N}(\mu, \sigma^2)$, we can implicitly define the model by giving a stochastic procedure for generating the data, i.e.
+\[ \epsilon \sim \mathcal{N}(0, 1) \,\,\,\,\,\,\,\,\, x = \mu + \sigma\epsilon\]
+or we can explicitly define it by specifying the density, i.e.
+\[ p(x \param \mu, \sigma^2) = \frac{1}{\sqrt{2\pi\sigma^2}}\exp\Big(-\frac{(x-\mu)^2}{2\sigma^2}\Big).\]} In this tutorial we have mostly considered explicit probabilistic models, whose training involved maximizing the log likelihood (or a lower bound on it) directly. Implicit models are instead trained with \emph{likelihood-free} inference, which (roughly) are a class of methods that estimate the density ratio $\frac{p_\star(x)}{p(x \param \theta)}$ or the density difference $p_\star(x) -p(x \param \theta)$
+instead of directly working with the likelihood $p(x \param \theta)$ \citep{marin2012,gutmann2012,gutmann2014,bernton2017}.
+
+Generative Adversarial Networks (GAN) \citep{goodfellow2014generative} are deep, implicit generative
+models trained with adversarial training where a \emph{discriminator} (or a \emph{critic})
+is trained to distinguish between samples from the generative model $p(x \param \theta)$ versus the true data distribution $p_\star(x)$. The generative model is trained ``adversarially" to fool the discriminator.
+
+Formally, let $D: \mathcal{X} \to (0, 1)$ be the discriminator (typically parameterized as 
+a neural network) that maps the data  $x \in \mathcal{X}$ to the interval $(0,1)$. The discriminator parameters $\psi$ and the generative model parameters $\theta$ are trained based on the following
+minimax objective:
+
+\[ \min_\theta \max_\psi \E_{p_\star(x)}[\log D(x \param \psi)] + \E_{p(x \param \theta)}[\log ( 1 - D(x \param \psi))]\]
+
+where the expectations are approximated with samples from $p_\star(x)$ and $p(x \param \theta)$. Interpreting $D(x \param \psi)$ as the probability the discriminator assigns to the event that $x$ is sampled from the true data distribution, we can see that 
+the discriminator training objective is the standard log likelihood objective from 
+logistic regression. The generative model is trained to minimize the probability that the discriminator will correctly classify the generated sample as fake.\footnote{In practice the generator is trained to maximize $\E_{p(x\param\theta)}[- \log D(x \param \psi)]$ as this provides stronger gradient signals early in training.} If the observed domain $\mathcal{X}$ is continuous (e.g. dequantized images) then we can backpropagate the gradients from the discriminator to the
+generative model. For text this is generally not the case and thus we must resort to
+other techniques.
+
+\cite{goodfellow2014generative} show that the above objective
+approximately minimizes the Jensen-Shannon divergence between the data/model distributions, which is
+given by
+\[ \JS[p_\star(x) \Vert p(x \param \theta)] = \frac{1}{2}\Big(\KL\Big[p_\star(x) \Big\Vert \frac{p_\star(x) + p(x \param \theta)}{2} \Big] + \KL\Big[p(x \param \theta) \Big\Vert \frac{p_\star(x) + p(x \param \theta)}{2} \Big]  \Big) \]
+This is notably different from the usual maximum likelihood training which minimizes $\KL[p_\star(x) \Vert p(x \param \theta)]$.
+The GAN objective has been generalized to (approximately) minimize other measures, 
+such as $f$-divergences \citep{nowozin2016f} and the Wasserstein distance \citep{arjovsky2017wasserstein,tolstikhin2017wasserstein}. 
+
+Empirically GANs perform remarkably well and are able to generate impressive-looking
+images \citep{Radford2016,salimans2016,zhang2017stack,miyato2018,Karras2018prog}. While a rich
+research program has formed around GANs (and implicit
+models in general) over the past few years,\footnote{For example see \url{https://github.com/hindupuravinash/the-gan-zoo} for a list of GAN variants.}
+their applications to text modeling has been somewhat limited by the difficulty
+associated with optimizing the GAN objective when the output space is discrete.
+
+\subsubsection{Generative Adversarial Networks for Text}\label{textgan}
+Training the discriminator is straightforward with gradient-based methods.
+For the generative model if 
+the domain $\mathcal{X}$ is continuous and $D(x \param \psi)$ is differentiable with 
+respect to $x$, then we can use the reparameterization trick to obtain low variance gradient estimators
+\begin{align*}
+    \nabla_\theta \E_{p(x \param \theta)}[\log(1 - D(x \param \psi)] &= \nabla_\theta \E_{p(z)} [\log(1 - D(f(z \param \theta) \param \psi)]  \\
+    &= \E_{p(z)}[\nabla_\theta \log (1-D(f(z \param \theta) \param \psi))] \\
+    &= \E_{p(z)}\Big[ - \frac{1}{1-D(x \param \psi)}  \nabla_x D(x \param \psi)\frac{\partial x}{\partial \theta}  \Big]
+\end{align*} 
+where the expectation is approximated with Monte Carlo samples. Notice that this requires
+the gradient of $D(x \param \psi)$ with respect to $x$, which is multiplied with the Jacobian
+$\frac{\partial x}{\partial \theta}$ to obtain the gradient with respect to $\theta$.\footnote{Note that automatic differentiation packages never actually instantiate the full Jacobian, but we have written it explicitly here for illustrative purposes.}
+
+If $\mathcal{X}$ is discrete however, we run into several issues.
+First, we cannot even have $x = f(z \param \theta)$ since a deterministic function that maps from a continuous $z$ to a discrete $x$ will either be uninteresting (e.g. a constant function)
+or badly behaved (e.g. an argmax, which is differentiable almost everywhere but has zero gradients almost everywhere). A tempting strategy in this case is to define the likelihood $p(x \given z \param \theta)$ whose \emph{parameters} are the output from $f$, e.g.
+\[ p(x \given z \param \theta) = \pi_x \,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\, \pi = f(z \param \theta) = \softmax(\MLP(z \param \theta))\]
+Note that this is now an \emph{explicit generative model}, much like the models we have considered in previous sections. Then the score function gradient estimator is
+\begin{align*}
+   \E_{p(x \param \theta)}[\log(1 - D(x \param \psi)) \nabla_\theta \log p(x \param \theta)] 
+\end{align*}
+Unfortunately we run into another issue here because $\log p(x \param \theta)$ was assumed to
+be intractable in the first place! Researchers have proposed to various ways to mitigate this problem.
+\paragraph{Relaxing the discrete space} Several works \citep{Gulrajani2017wgan,Rajeswar2017,Press2017} relax the discrete space into a continuous space, for example by using the softmax function
+\[ x = f(z \param \theta) = \softmax(\MLP(z \param \theta)) \]
+(If $x$ is a sequence of discrete symbols, then the output of $f$ would be a $\softmax$-ed vector for each time step, i.e. a $T \times V$ dense matrix where $T$ is the number of tokens and $V$ is the vocabulary size).
+Then as was the case with images it is straightforward to apply the reparameterization trick to obtain gradients for the generative model. At first this strategy might seem hopeless 
+since (1) the discriminator can easily discriminate between a discrete sample $x \sim p_\star(x)$
+and a generated (continuous) sample $x \sim p(x \param \theta)$, and (2) the Jensen-Shannon divergence, which is implicitly minimized by the GAN objective, is infinite for two distributions with disjoint support (as is the case here). However in practice this strategy does work to an extent, especially if one instead implicitly minimizes the Wasserstein distance \citep{arjovsky2017wasserstein}. 
+\cite{Gulrajani2017wgan} note that training might be feasible in this regime since 
+under mild conditions, the Wasserstein distance 
+is finite and differentiable almost everywhere (i.e. even if the supports between the two distributions do not overlap).  For actual sample generation it is common practice to replace the $\softmax$ with an $\argmax$ in these models. 
+
+Another way to ``relax"  the discrete space to learn an auxiliary continuous space in which to generate / discriminate. For example, \cite{zhao2017adversarially} use the adversarial autoencoder framework \citep{Makhzani2015} to jointly learn (1) a sentence-level autoencoder which encodes into and decodes from a continuous space, and (2) a GAN which learns to generate/discriminate in the same continuous space. \cite{tolstikhin2017wasserstein} show that this style of training approximately minimizes the Wasserstein distance between the model/data distributions, and \cite{gu2018dialog} apply a similar technique to model dialogue responses.
+
+\paragraph{No latent variables} A simple alternative is to model $p(x \param \theta)$
+without an explicit latent variable, e.g. as an RNN language model \citep{Yu2017,lin2017adversarial,guo2018leakgan}. Then the
+score function gradient estimator is straightforward to calculate, and this setup
+resembles sequence-level training of deep models \citep{ranzato2016seq} where the reward comes from a learned
+discriminator. Such methods usually require initializing with a pretrained  language model (trained with maximum likelihood), in addition
+to other techniques from reinforcement learning.
+\cite{Li2017}, \cite{wu2017adnmt}, and \cite{yang2018nmtgan} extend this setup to the conditional case for neural machine translation and dialogue modeling. Some works instead perform 
+adversarial training on the hidden states of the generative model to avoid optimization challenges associated with score function gradient estimators \citep{lamb2016,Shen2017,xu2017embgan}.
+We emphasize that these models
+are not latent variable models in the sense we have been employing in this tutorial. Instead they should be viewed as language models optimized with adversarial training.
+
+We conclude this section by noting that training implicit models for text is very much an open problem. Evaluation of implicit models itself is difficult, as unlike explicit generative models it is not possible to tractably estimate the log likelihood. Even if log likelihood is estimable, \cite{Theis2016} show that 
+models that achieve good log likelihoods do not necessarily generate good samples.
+\cite{cifka2018} and \cite{sem2018ganeval} explore a variety of deep generative models of language across various metrics and find that different models do well on different metrics.
+
+
+\section{Case Study 1: Variational Attention}
+\section{Case Study 2: Summary as Latent Variable}
+
+\section{Discussion}
+\small
+\bibliography{master}
+\bibliographystyle{acl_natbib_nourl}
+\end{document}

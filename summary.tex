@@ -1,0 +1,105 @@
+\documentclass{article}
+\usepackage[top=1.25cm,bottom=1.25cm,left=1.25cm,right=1.25cm]{geometry}
+\usepackage{common}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsmath,textcomp,amssymb,geometry,graphicx,enumerate}
+\usepackage{algorithm}
+\usepackage{hyperref}
+\usepackage{stmaryrd}
+\usepackage{parskip}
+
+\usepackage{titlesec}
+\titleformat*{\section}{\large\bfseries}
+\newcommand{\MLP}{\text{MLP}}
+\newcommand{\RNN}{\text{RNN}}
+
+
+\usepackage[backend=bibtex]{biblatex}
+% \usepackage[round]{natbib}
+% \bibliographystyle{unsrtnat}
+\bibliography{master}
+\begin{document}
+\title{\vspace{-15mm} \Large Deep Latent Variable Models of Natural Language \vspace{-5mm}} 
+\author{Yoon Kim}
+\date{}
+\maketitle
+\vspace{-16mm}
+\section{Introduction}
+\vspace{-4mm}
+Deep learning has emerged as a powerful tool for generative modeling of complex, high dimensional data, such as images \cite{goodfellow2014generative,Radford2016,pixelrnn}, audio \cite{wavenet}, and natural language \cite{Mikolov2010}. In \emph{deep} generative models, we are interested in training a neural net with parameters $\theta$ to maximize the likelihood of the observed data $\boldx^{(i)}, \dots, \boldx^{(N)}$, i.e. $\prod_{i=1}^N p_\theta (\mathbf{x}^{(i)})$.
+
+For natural language applications $\mathbf{x}$ is usually a sentence 
+or a document, e.g. $\mathbf{x} = [\boldx_1, \dots, \boldx_T]$
+for a sentence of length $T$ (for notational brevity we will only consider a single data point hereon).
+Existing approaches generally fall into two categories: (i) \emph{auto-regressive} models, which do not assume any latent variables and simply factorize
+the likelihood of a data point $\mathbf{x}$  by the chain rule, i.e.
+$ p_\theta(\mathbf{x}) = \prod_{t=1}^T p_\theta(\mathbf{x}_t \given \mathbf{x}_{<t})$,
+and (ii) \emph{latent variable} models, which assume 
+some unobserved latent variables from a prior
+$\mathbf{z} \sim p(\boldz)$ and find parameters that maximize $p_\theta(\mathbf{x}) = \int p_\theta(\mathbf{x} \given \mathbf{z}) p(\mathbf{z}) d\mathbf{z}$.
+While auto-regressive models (and their conditional variants) have so far been the workhorse of many recent, deep learning-based advances in natural language processing (from language modeling \cite{Mikolov2010} to machine translation \cite{Sutskever2014,Cho2014}),
+there are several reasons to consider the latent variable approach.
+
+For one, the prior $p(\boldz)$ is typically assumed to be a simple, factorized
+distribution such as a spherical Gaussian, and this may provide an
+inductive bias for the model
+to disentangle global variations (e.g. content) from local variations (e.g.
+fluency). Indeed, while existing auto-regressive models have been shown to generate sentences that are locally fluent, they are often observed to lack global coherence. Relatedly, having access to $p_\theta(\mathbf{z} \given \mathbf{x})$ (or some approximation thereof) may result in more interpretable models, and even allow for \emph{controllable} text generation \cite{Hu2017}.
+From a more practical standpoint, latent variable models more easily lend themselves to semi-supervised methods and thus make it possible to leverage unlabeled data in a probabilistically rigorous way.
+
+Finally, for many applications we are interested in \emph{conditional} language 
+generation, where we are given some source
+context $\boldc$ and want to maximize the conditional probability $p_{\theta}(\boldx \given \boldc)$. Here $\boldc$ can be a sentence to be translated \cite{Sutskever2014,Cho2014}, a document to be summarized \cite{Rush2015}, an interlocutor's previous utterance \cite{Li2016}, or even an image \cite{Vinyals2015b}. Existing methods that simply maximize 
+$p_\theta(\mathbf{x} \given \boldc ) = \prod_{t=1}^T p_\theta(\mathbf{x}_t \given \mathbf{x}_{<t}, \boldc)$ may have a hard time modeling \emph{multimodality}---given the same context, there are usually multiple valid outputs. Latent variable models allow us to naturally incorporate multimodality (e.g. mixture of Gaussians). Of course, these benefits come at a substantial cost: in all but a few simple cases, $p_\theta(\mathbf{x}) = \int p_\theta(\mathbf{x} \given \mathbf{z}) p(\mathbf{z}) d\mathbf{z}$ is completely intractable to estimate directly. 
+This leads us to consider variational methods for training
+such models.\footnote{Alternatively, one could consider Markov chain
+Monte Carlo (MCMC) or implicit density 
+(i.e. GANs \cite{goodfellow2014generative}) methods
+to train latent variable models.}
+\vspace{-4mm}
+\section{Semi-Amortized Variational Inference}
+\vspace{-4mm}
+Variational inference (VI) \cite{Jordan1999} is a framework 
+for approximating an intractable distribution with a family of tractable 
+distributions. In the context of the models described above, this involves
+maximizing a lower bound of the true data log-likelihood, also known as the evidence lower bound (ELBO):
+\[ \mathbb{E}_{\boldz \sim q_\lambda(\boldz)} [\log p_\theta(\boldx \given \boldz)] - 
+KL[q_{\lambda} (\boldz \given \boldx) || p(\boldz)] \le \log p_{\theta}(\boldx) \] 
+Here $q_\lambda(\boldz)$ is the variational distribution with free parameters $\lambda$, which is optimized based on the above criterion.
+Traditional VI algorithms typically rely on coordinate ascent-type methods in which one goes through the entire dataset and re-estimates the variational parameters for each data point at each iteration with model-specific updates \cite{Ghahramani2001}. This makes them challenging to apply to large-scale datasets and complex neural models.
+
+In contrast, modern algorithms for VI often rely on two approaches to make them scalable: \emph{stochastic variational inference} \cite{Hoffman2013}, wherein local variational parameters are randomly initialized and then updated based on 
+a subsample of the data, and \emph{amortized variational inference} \cite{Kingma2014,Rezende2014}, wherein local variational parameters are amortized across the entire dataset through some shared parametric model whose output are the variational parameters.\footnote{The variational autoencoder (VAE) is an example of amortized variational inference which has proven to be particularly popular.} 
+The former requires that we run some optimization procedure (e.g. gradient ascent) to find the variational parameters for each data point, which could result in long inference/training times. The latter admits fast inference, but requiring the variational parameters to be the output of a shared parametric function may be too strict of a restriction.
+
+In this work, we consider marrying the two approaches. We propose to use a parametric model over $\boldx$ (i.e. an encoder) to initialize the local variational parameters, and then subsequently run stochastic variational inference to refine them. Notably we can leverage recent advances in differentiable optimization \cite{Domke2012,Maclaurin2015} to \emph{differentiate through} the variational inference procedure and therefore training remains end-to-end. 
+Compared to regular variational autoencoders, the encoder is less burdened as it is only tasked with producing approximate variational parameters, aware that they will be further fine-tuned. Compared to stochastic variational inference, we may need fewer iterations of gradient ascent since the encoder provides good initial parameters. The variational parameters are therefore only partially amortized
+across the dataset, hence the name \emph{semi-amortized} variational inference.
+\vspace{-4mm}
+\section{Applications}
+\vspace{-4mm}
+We are interested in applying our approach to train latent
+variable models of natural language.
+While variational autoencoders have 
+shown to be effective for generative modeling of images \cite{Chen2017}, they have proved challenging to apply
+to natural language, mainly due to the fact that when the decoder $p_\theta(\boldx \given \boldz)$ is powerful (e.g. an LSTM), the latent code is ignored \cite{Bowman2016}. With the proposed approach, since the variational parameters are not restricted to be the output of a parametric function, it is 
+possible that we are able to use a powerful decoder and still make use of the latent
+code. In addition to pure generative modeling, we consider applying our approach to semi-supervised learning and conditional language generation, both of which would be applicable to a wide range of models deployed at Facebook.
+\vspace{-4mm}
+\paragraph{Semi-supervised Learning:}
+In many situations we are faced with a small amount of labeled data and
+a large amount of unlabeled data (e.g. all posts on Facebook).
+Latent variable models offer a principled way of leveraging unlabeled data
+for semi-supervised learning---for unlabeled data, the labels are simply treated as additional (unobserved) latent variables that are marginalized over.
+Such a technique has proved effective for semi-supervised learning of images \cite{Kingma2014b}, and there has been promising recent results on applying similar ideas to text \cite{Yang2017}. An alternative way of leveraging latent variable models for semi-supervised learning is to use the latent code as a generic \emph{sentence embedding} \cite{Hill2016} (as with word embeddings \cite{Mikolov2013a}). We posit that better generative models will likely result in
+``better'' sentence embeddings that preserve semantics and therefore will be more performant in downstream tasks.
+\vspace{-4mm}
+\paragraph{Conditional Language Generation:}
+Conditional language generation with auto-regressive models has been successfully applied to a wide range of tasks, most notably in  machine translation \cite{Sutskever2014,Cho2014}. Noting the empirical effectiveness of auto-regressive models, we observe that they do not explicitly model multimodality, and instead simply maximize the likelihood of a single sequence conditioned on the source context. This is potentially problematic as given (for example) a sentence to be translated, there are typically many valid translations. Latent variable models can naturally model multimodality and are therefore more attractive models for conditional generation. Conditional latent variable models trained with semi-amortized variational inference could hence improve Facebook's neural machine translation systems (among others).
+
+Finally, while our approach is motivated by applications of latent variable models for natural language processing (which has proven difficult compared to images), it provides a novel, general-purpose method for performing variational inference and is therefore applicable to other domains.
+
+\printbibliography
+\end{document}
