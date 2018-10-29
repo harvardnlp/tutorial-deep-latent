@@ -9,9 +9,10 @@
     \[ x_{1: T}\sim  \RNNLM(x_{1:T}; \theta). \]
      
     Defined as, 
-    \begin{eqnarray*}
-     p(x_{1:T})  = \displaystyle \prod_{t=1}^T p(x_t \given x_{<t}) =  \displaystyle \prod_{t=1}^T \softmax(\boldW \RNN(\boldh_t, \boldx_t;\theta))
-    \end{eqnarray*}
+    \begin{align*}
+     p(x_{1:T}) &= \prod_{t=1}^T p(x_t \given x_{<t})\\
+     &= \prod_{t=0}^{T-1} \softmax(\boldW \RNN(\boldh_{t-1}, \boldx_{t};\theta))_{x_{t+1}}.
+    \end{align*}
     % \[ p(x_{1:T})  = \prod_{t=1}^T p(x_t \given x_{<t}) = \prod_{t=1}^T \softmax(\RNN(\boldh_{t-1}, x_t;\theta)). \]
 \begin{center}
 \begin{tikzpicture}
@@ -370,13 +371,16 @@ Generative Process:
 
 RNN is also conditioned on latent $\boldz$,  
 \begin{align*}
-     & p(x, \boldz \param \pi, \bmu, \bSigma)  = p(\boldz \param \bmu, \bSigma) \times p(x \given \boldz \param \pi) \\ 
-      &  = \mcN(\boldz \param \bmu, \bSigma)  \times \RNNLM(\boldx_{1:T}  \param \pi,  \boldz)
+     p(x, \boldz \param \pi, \bmu, \bSigma)  &= p(\boldz \param \bmu, \bSigma) \times p(x \given \boldz \param \pi) \\ 
+      &  = \mcN(\boldz \param \bmu, \bSigma)  \times \RNNLM(x_{1:T}  \param \pi,  \boldz)
     %   &  = \mcN(z\param \mu, \Sigma)  \prod_{t=1}^T \softmax(\RNN(\boldh_{t-1}, \MLP([x_t, z]); \pi))      
 \end{align*}
 
 where 
-\[ \RNNLM(\boldx_{1:T}  \param \pi,  \boldz) = \prod_{t=1}^T \softmax(\boldW \RNN(\boldh_{t-1}, [x_t, z]; \pi)) \]
+\begin{align*} 
+&\RNNLM(x_{1:T}  \param \pi, \boldz) \\
+&= \prod_{t=0}^{T-1} \softmax(\boldW \RNN(\boldh_{t-1}, [\boldx_t, \boldz]; \pi))_{x_{t+1}}.
+\end{align*}
 
 \end{frame}
 
