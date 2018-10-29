@@ -6,11 +6,11 @@
     
     \air 
     Context: RNN language models are remarkable at this task,
-    \[ x_{1: T}&\sim  \RNNLM(x_{1:T}; \theta). \]
+    \[ x_{1: T}\sim  \RNNLM(x_{1:T}; \theta). \]
      
     Defined as, 
     \begin{eqnarray*}
-     p(x_{1:T})  &= \displaystyle \prod_{t=1}^T p(x_t \given x_{<t}) =  \displaystyle \prod_{t=1}^T \softmax(\boldW \RNN(\boldh_t, \boldx_t;\theta))
+     p(x_{1:T})  = \displaystyle \prod_{t=1}^T p(x_t \given x_{<t}) =  \displaystyle \prod_{t=1}^T \softmax(\boldW \RNN(\boldh_t, \boldx_t;\theta))
     \end{eqnarray*}
     % \[ p(x_{1:T})  = \prod_{t=1}^T p(x_t \given x_{<t}) = \prod_{t=1}^T \softmax(\RNN(\boldh_{t-1}, x_t;\theta)). \]
 \begin{center}

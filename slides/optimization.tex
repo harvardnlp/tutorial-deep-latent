@@ -151,7 +151,8 @@ Hard: Gradient respect to $\lambda$
 \begin{itemize}
     \item Naive enumeration: Linear in $|\mcZ|$.
     \item Depending on structure of $q$ and $p$, potentially faster with dynamic programming.
-    \item Applicable mainly to Model 1 and 3 (Discrete and Structured Models).
+    \item Applicable mainly to Model 1 and 3 (Discrete and Structured Models), or Model 2 with 
+    point estimate. 
 \end{itemize}
 \end{frame}
 
@@ -203,6 +204,8 @@ Hard: Gradient respect to $\lambda$
     %    \item $x_t \sim \text{Cat}(f(z \param \theta))$
     %\end{enumerate}
 \end{frame}
+
+
 
 %\begin{frame}
 %\thetitle{Strategy 1: Enumeration}
@@ -270,7 +273,7 @@ Hard: Gradient respect to $\lambda$
 \thetitle{Strategy 2: Sampling}
 \begin{align*}
     \nabla_\lambda &\ELBO(\theta, \lambda ; x) =  \nabla_\lambda \E_q \Big[\log \frac{\log p(x, z \param \theta)}{\log q (z \given x \param \lambda)} \Big]\\
-    &= \nabla_\lambda \alert{\E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big]} -\nabla_\lambda \E_{ q}\Big[ \log q( z^{} \given x^{} \param \theta) \Big]  
+    &= \nabla_\lambda {\E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big]} -\nabla_\lambda \E_{ q}\Big[ \log q( z^{} \given x^{} \param \theta) \Big]  
 \end{align*} 
 
 \begin{itemize}

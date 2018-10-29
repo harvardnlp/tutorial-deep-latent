@@ -8,7 +8,7 @@ Generative Model (Model 2):
     \item Until end-of-sentence:
     \begin{itemize}
     %\item Set $\boldh_{\boldz,t} = \LSTM(\boldh_{\boldz,t-1}, [\boldx_{t} ; \boldz])$
-    \item Draw $x_{t} \given x_{<t}, \boldz \sim \RNN([\boldh_{t-1}, \boldz] \param \theta)$
+    \item Draw $x_{t} \given x_{<t}, \boldz \sim \RNNLM( \pi, \boldz)$
     %p(x_t \given x_{<t},\boldz \param \theta)$
     %\item Draw $x_{t+1} \given x_{<t}, \boldz \sim \softmax(\mathbf{W}\boldh_{\boldz,t})$ %p(x_t \given x_{<t},\boldz \param \theta)$
     % \[  \]
@@ -267,10 +267,10 @@ Qualitative evaluation
 \textbf{Given:} Source information $s = s_1, \ldots, s_M$.
 \air
 
-\textbf{Generative process:} For words $t=1, \ldots, T$
+\textbf{Generative process:}
   \begin{itemize}
      %\item Set $\boldh_t = \RNN(\boldh_{t-1}, [\boldx_t, \benc(s)])$.
-      \item Draw $x_{t} \given x_{< t}, s \sim \RNN([\boldh_{t-1}, \benc(s)] \param \theta)$.
+      \item Draw $x_{1:T} \given s \sim \RNNLM(\theta, \benc(s))$.
   \end{itemize}
 
 
@@ -278,7 +278,7 @@ Qualitative evaluation
 
 \air
 %Log likelihood: 
-$ \implies  p(x_{1:T} \given s \param \theta) =  \prod_{t=1}^T \RNN([ \boldh_{t-1}, \benc(s)])_{x_t}$.
+%$ \implies  p(x_{1:T} \given s \param \theta) =  \prod_{t=1}^T \RNN([ \boldh_{t-1}, \benc(s)])_{x_t}$.
     % \begin{align*}
     %     \log p(x_{1:T} \given s \param \theta) = \log \prod_{t=1}^T \softmax(\boldW \boldh_{t-1})_{x_t}.
     % \end{align*}
@@ -294,8 +294,8 @@ $ \implies  p(x_{1:T} \given s \param \theta) =  \prod_{t=1}^T \RNN([ \boldh_{t-
 \textbf{Generative process:} For $t=1, \ldots, T$,
 \begin{itemize}
     %\item Set $\boldh_t = \RNN([\boldx_t, \benc(s)], \boldh_{t-1})$.
-    \item Draw $z_{t} \given x_{< t}, s \sim \text{Cat}(\softmax(\boldU \boldh_{t-1}))$.
-    \item Draw $x_{t} \given z_{t}, x_{< t}, s \sim \RNN(\tanh(\boldQ_{z_t} \boldh_{t-1}) \param \theta)$ %\text{Cat}(\softmax(\boldW \tanh(\boldQ_{z_t} \boldh_t)))$.
+    \item Draw $z_{t} \given x_{< t}, s \sim \softmax(\boldU \boldh_{t-1})$.
+    \item Draw $x_{t} \given z_{t}, x_{< t}, s \sim \softmax(\boldW \tanh(\boldQ_{z_t} \boldh_{t-1}) \param \theta)$ %\text{Cat}(\softmax(\boldW \tanh(\boldQ_{z_t} \boldh_t)))$.
 \end{itemize}
 \begin{center}
 
@@ -402,7 +402,7 @@ Dialogue generation results ($s$ is context):
 
 Decoding with an attention mechanism:
 
-\[p(x_{t} \given x_{< t}, s \param \theta) = \RNN([\boldh_{t-1}, {\sum_{m=1}^M} \alpha_{t,m} \,  \benc(s_m)])_{x_{t}}.\]
+\[x_{t} \given x_{< t}, s  \sim \softmax(\boldW [\boldh_{t-1}, {\sum_{m=1}^M} \alpha_{t,m} \,  \benc(s_m)]).\]
 
 
 % \air
@@ -427,7 +427,7 @@ Copy attention~\citep{gu2016incorporating,gulcehre2016pointing} models copying w
     \item Draw $z_{t} \given x_{< t}, s \sim \mathrm{Bern}(\MLP([\boldh_{t-1}, \benc(s)]))$.
     \item If $z_{t} = 0$
     \begin{itemize}
-        \item Draw $x_{t} \given z_{t}, x_{< t}, s \sim \RNN(\boldh_{t-1} \param \theta)$.
+        \item Draw $x_{t} \given z_{t}, x_{< t}, s \sim \softmax(\boldW \boldh_{t-1})$.
     \end{itemize}
     \item Else 
     \begin{itemize}
@@ -464,7 +464,7 @@ Copy attention~\citep{gu2016incorporating,gulcehre2016pointing} models copying w
     %\item Set $\boldh_t = \RNN([\boldx_t, \benc(s)], \boldh_{t-1})$.
     \item Set $\balpha_t$ to be attention weights.
     \item Draw $z_{t} \given x_{ < t}, s \sim \mathrm{Cat}(\balpha_t)$.
-    \item Draw $x_{t} \given z_{t}, x_{< t}, s \sim \RNN([\boldh_t, \benc(s_{z_{t}})] \param \theta)$.
+    \item Draw $x_{t} \given z_{t}, x_{< t}, s \sim \softmax(\boldW [\boldh_t, \benc(s_{z_{t}})] \param \theta)$.
 \end{itemize}
 
 % \air
@@ -476,7 +476,7 @@ Copy attention~\citep{gu2016incorporating,gulcehre2016pointing} models copying w
 \thetitle{Attention as a Latent Variable~\citep{deng2018}}
 Marginal likelihood under latent attention model:
     \begin{align*}
-       p(x_{1:T} \given s \param \theta) = \prod_{t=1}^T \sum_{m=1}^M \alpha_{t,m} \RNN([\boldh_t, \benc(s_{m})] \param \theta)_{x_t}.
+       p(x_{1:T} \given s \param \theta) = \prod_{t=1}^T \sum_{m=1}^M \alpha_{t,m} \softmax(\boldW [\boldh_t, \benc(s_{m})] \param \theta).
     \end{align*}
     
 \air

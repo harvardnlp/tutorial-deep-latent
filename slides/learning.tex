@@ -241,9 +241,10 @@ Since KL is always non-negative, $L(\theta) \geq \ELBO(\theta, \lambda)$.
     
     \item Just as with $p$ and $\theta$, we can select any form of $q$ and $\lambda$ that satisfies ELBO conditions. 
     \item Different choices of $q$ will lead to different algorithms.
-    \item We will explore three forms of $q$: 
+    \item We will explore several forms of $q$: 
     \begin{itemize}
         \item Posterior
+        \item Point Estimate / MAP
         \item Amortized
         \item Mean Field (later)
     \end{itemize}
@@ -252,41 +253,6 @@ Since KL is always non-negative, $L(\theta) \geq \ELBO(\theta, \lambda)$.
 
 \begin{frame}
 \thetitle{Example Form of $q$ : Full Posterior Form}
-\begin{center}
-    \begin{tikzpicture}
-% nodes
- \node[latent] (zl) {$z^{(n)}$};%
- %\node[const, below=of zl] (xl) {$x^{(n)}$};%
- %\node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
- \node[const, below=of zl] (lambda) {$\lambda^{(n)}$};
-% plate
- \plate {plate1} {(zl)(lambda)} {$N$}; %
- \edge{lambda}{zl};
- 
- \begin{scope}[xshift=5cm]
-%\node (dots) {$\ldots$};%
- %\node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
- \node[latent] (z) {$z^{(n)}$}; %
- \node[obs, below=of z] (x1) {$x^{(n)}$};%
-% \node[const, above=of z] (mu) {$\bmu$};
- \node[const, right= of x1] (pi) {$\theta$};
- 
-% plate
- \plate {plate1} {(x1)(z)} {$N$}; %
-% edges
- \edge {z} {x1};
- %\edge {mu} {z};
- \edge {pi} {x1, z};
- \end{scope}
- \draw[dashed] (zl) --node [yshift=0.2cm] {$\KL(q(z \given x) || p(z \given x))$} (z);
-\end{tikzpicture}
-\end{center}
-$\lambda = [\lambda^{(1)}, \dots, \lambda^{(N)}]$ is a concatenation of all local variational parameters $\lambda^{(n)}$, e.g.
-    \[ q(z^{(n)} \given x^{(n)} \param \lambda) = q(z^{(n)} \param \lambda^{(n)}) =   \mathcal{N}(\lambda^{(n)} , 1) \]
-\end{frame}
-
-\begin{frame}
-\thetitle{Example Form of $q$ : MAP Point Estimate Form}
 \begin{center}
     \begin{tikzpicture}
 % nodes
