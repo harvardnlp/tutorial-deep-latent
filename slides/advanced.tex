@@ -4,41 +4,41 @@
 \thetitle{Advanced Topics}
 \begin{enumerate}
 \item Gumbel-Softmax: Extend reparameterization to discrete variables.
-\item Flows: Optimize a tighter bound by making $q$ more flexible.
-\item Importance Weighted AE:  Optimize a tighter bound through importance sampling.
+\item Flows: Optimize a tighter bound by making the variational family $q$ more flexible.
+\item Importance Weighting:  Optimize a tighter bound through importance sampling.
 \end{enumerate}
 \end{frame}
 
+
+
 \subsection{Gumbel-Softmax}
-\begin{frame}
-\thetitle{Gumbel-Softmax \citep{Jang2017,Maddison2017}}
-\begin{itemize}
-    \item Recall the reparameterization trick for estimating $\nabla_\lambda \ELBO(\theta, \lambda \param x)$ in the continuous case.
-    \item What if $z$ is discrete?
-\end{itemize}
-\end{frame}
 
 \begin{frame}
-\thetitle{Gumbel-Softmax \citep{Jang2017,Maddison2017}}
-Review: we can always use score function estimator 
+\thetitle{Challenges of Discrete Variables}
+    
+    Review: we can always use score function estimator 
 \begin{align*}
  \nabla_\lambda &\ELBO(x, \theta, \lambda) = \E_{q}\Big[\log \frac{p(x, z \param \theta)}{q(z \given x \param \lambda)}\nabla_{\lambda}\log q(z \given x \param \lambda)\Big]     \\
  &= \E_{q}\Big[\Big(\log \frac{p(x, z \param \theta)}{q(z \given x \param \lambda)}- B\Big)\nabla_{\lambda}\log q(z \given x \param \lambda)\Big] 
 \end{align*}
 
 \begin{itemize}
+\item $\E_q[B \nabla_\lambda \log q(z \given x \param \lambda)] = 0$ \pause
     \item Control variate $B$ (not dependendent on $z$, but can depend on $x$). 
     \item Estimate this quantity with another neural net \citep{Mnih2014}
     \[ \Big( B(x \param \psi) -\log \frac{p(x, z \param \theta)}{q(z \given x \param \lambda)} \Big)^2 \]
-    \item Can we leverage the reparameterization trick instead?
 \end{itemize}
-\end{frame}
 
+    
+\end{frame}
 \begin{frame}
-\thetitle{Gumbel-Softmax \citep{Jang2017,Maddison2017}}
+\thetitle{Gumbel-Softmax: Discrete Reparameterization  \citep{Jang2017,Maddison2017}}
+
+
 The ``Gumbel-Max" trick \citep{Papandreou2011}
 \[ p(z_k = 1 \param \alpha) = \frac{\alpha_k}{\sum_{j=1}^K \alpha_j} \]
-where $z = [0, 0, \dots, 1 , \dots, 0]$ is a one-hot vector.
+where $z = [0, 0, \dots, 1 , \dots, 0]$ is a one-hot vector. \\
+\pause
 Can sample from $p(z \param \alpha)$ by
 \begin{enumerate}
     \item Drawing independent Gumbel noise $\epsilon =  \epsilon_1, \dots, \epsilon_K$
@@ -46,41 +46,50 @@ Can sample from $p(z \param \alpha)$ by
     \item Adding $\epsilon_k$ to $\log \alpha_k$, finding argmax, i.e.
     \[ i = \argmax_k [\log \alpha_k + \epsilon_k] \,\,\,\,\,\,\,\,\,\,\,\,\,\,\,
     z_i = 1 \]
-
+\pause
 \end{enumerate}
-    More succinctly,
-    \[ z = \argmax_{s \in \Delta^{K-1}}  \,\,(\log \alpha + \epsilon)^\top s = g(\epsilon, \alpha) \]
-    
+
 \end{frame}
 
 \begin{frame}
-\thetitle{Gumbel-Softmax \citep{Jang2017,Maddison2017}}
-So we can reparameterize, since $z = g(\epsilon, \alpha)$ is a deterministic function applied to stochastic noise. \\ Let's try applying this:
+\thetitle{Gumbel-Softmax: Discrete Reparameterization  \citep{Jang2017,Maddison2017}}
+
+Reparameterization:
+\[ z = \argmax_{s \in \Delta^{K-1}}  \,\,(\log \alpha + \epsilon)^\top s = g(\epsilon, \alpha) \]
+$z = g(\epsilon, \alpha)$ is a deterministic function applied to stochastic noise. Let's try applying this: \\ 
+
 \[ q(z_k = 1 \given x \param \lambda) = \frac{\alpha_k}{\sum_{j=1}^K \alpha_j} \,\,\,\,\,\,\,\, \alpha = \enc(x \param \lambda) \]
+\pause 
+(Recalling $R_{\theta, \lambda}(z) =  \log \frac{p(x, z \param \theta)}{q(z \given x \param \lambda)}$),
 \begin{align*}
-    \nabla_\lambda \E_{q(z \given x \param \lambda)}\Big[& \log \frac{p(x, z \param \theta)}{q(z \given x \param \lambda)}\Big] \\ &= 
-    \nabla_\lambda \E_{\epsilon \sim \text{Gumbel}}\Big[ \log \frac{ p(x, g(\epsilon, \alpha) \param \theta)}{q(g(\epsilon, \alpha) \given x \param \lambda)}\Big] \\
-    &=      \E_{\epsilon \sim \text{Gumbel}}\Big[\nabla_\lambda \log \frac{ p(x, g(\epsilon, \alpha) \param \theta)}{q(g(\epsilon, \alpha) \given x \param \lambda)}\Big]
+    \nabla_\lambda \E_{q(z \given x \param \lambda)}[R_{\theta, \lambda}(z)]  &= 
+    \nabla_\lambda \E_{\epsilon \sim \text{Gumbel}}[R_{\theta, \lambda}(g(\epsilon, \alpha)] \\
+    &=      \E_{\epsilon \sim \text{Gumbel}}[\nabla_\lambda R_{\theta, \lambda}(z)]
 \end{align*}
 \end{frame}
 
 \begin{frame}
-\thetitle{Gumbel-Softmax \citep{Jang2017,Maddison2017}}
-But this won't work, since
-\[ z = g(\epsilon, \alpha) = \argmax_{s \in \Delta^{K-1}} (\log \alpha + \epsilon)^\top s \]
-has zero gradients almost everywhere.
+\thetitle{Gumbel-Softmax: Discrete Reparameterization  \citep{Jang2017,Maddison2017}}
+But this won't work, because zero gradients (almost everywhere)
+\[ z = g(\epsilon, \alpha) = \argmax_{s \in \Delta^{K-1}} (\log \alpha + \epsilon)^\top s \implies \nabla_\lambda R_{\theta, \lambda}(z) = 0\]
+\pause
 \\ \vspace{3mm}
 Gumbel-Softmax trick: replace $\argmax$ with $\softmax$
-\[ z = \softmax((\log \alpha + \epsilon)/\tau) \]
-i.e.
-\[ z_k = \frac{\exp((\log \alpha_k + \epsilon_k)/\tau)}{\sum_{j=1}^K \exp ((\log \alpha_j + \epsilon_j)/\tau)}\]
+\[ z = \softmax\Big(\frac{\log \alpha + \epsilon}{\tau}\Big) \,\,\,\,\,\,\,\,\,\,\, z_k = \frac{\exp((\log \alpha_k + \epsilon_k)/\tau)}{\sum_{j=1}^K \exp ((\log \alpha_j + \epsilon_j)/\tau)} \]
+\pause
+\begin{align*} 
+  \nabla_\lambda \E_{q(z \given x \param \lambda)}[R_{\theta, \lambda}(z)] \approx 
+\E_{ \epsilon \sim \text{Gumbel}}\Big[\nabla_\lambda R_{\theta, \lambda}\Big(\softmax\big(\frac{\log \alpha + \epsilon}{\tau}\big)\Big) \Big]
+\end{align*}
+
 where $\tau$ is a temperature term. 
 \end{frame}
 
 \begin{frame}
-\thetitle{Gumbel-Softmax \citep{Jang2017,Maddison2017}}
+\thetitle{Gumbel-Softmax: Discrete Reparameterization  \citep{Jang2017,Maddison2017}}
+
 \begin{itemize}
-    \item Approaches a discrete distributution as $\tau \to 0$
+    \item Approaches a discrete distributution as $\tau \to 0$ (anneal $\tau$ during training).
     \item Reparameterizable by construction
     \item Differentiable and has non-zero gradients
 \end{itemize}
@@ -90,13 +99,8 @@ where $\tau$ is a temperature term.
 \end{frame}
 
 \begin{frame}
-\thetitle{Gumbel-Softmax \citep{Jang2017,Maddison2017}}
-\vspace{-5mm}
-\begin{align*} 
-  \nabla_\lambda& \E_{q(z \given x \param \lambda)}\Big[ \log \frac{p(x, z \param \theta)}{q(z \given x \param \lambda)}\Big] \\ &\approx 
-\E_{ \epsilon \sim \text{Gumbel}}\Big[\nabla_\lambda \log \frac{ p(x, \softmax((\log \alpha + \epsilon)/\tau) \param \theta)}{q(\softmax((\log \alpha + \epsilon)/\tau) \given x \param \lambda)}\Big] 
-\end{align*}
-(anneal $\tau$ during training)
+\thetitle{Gumbel-Softmax: Discrete Reparameterization  \citep{Jang2017,Maddison2017}}
+
 \begin{itemize}
 \item See \cite{Maddison2017} on whether we can use the original categorical densities $p(z), q(z)$, or need to use relaxed densities $p_{\text{GS}}(z), q_{\text{GS}}(z)$.
 \item Requires that $p(x \given z \param \theta)$ ``makes sense" for non-discrete $z$ (e.g. attention).
@@ -110,6 +114,7 @@ where $\tau$ is a temperature term.
 \thetitle{Flows \citep{Rezende2015,Kingma2016}}
 Recall
 \[ \log p(x \param \theta)  = \ELBO(\theta, \lambda; x) - \KL[q(z \given x \param \lambda)  \, \Vert \, p(z \given x \param \theta)]  \]
+\pause
 Bound is tight when variational posterior equals true posterior
 \[ q(z \given x \param \lambda) = p(z \given x \param \theta) \implies \log p(x \param \theta) = \ELBO( \theta,  \lambda \param x) \]
 We want to make $q(z \given x \param \lambda)$ as flexible as possible:
@@ -120,6 +125,7 @@ can we do better than just Gaussian?
 \thetitle{Flows \citep{Rezende2015,Kingma2016}}
 \textbf{Idea:} transform a sample from a simple initial variational distribution, 
 \[ z_0 \sim q(z \given x \param \lambda) = \mathcal{N}(\mu, \sigma^2) \,\,\,\,\,\,\,\,\,\,\,\,\,\, \mu, \sigma^2 = \enc(x \param \lambda)\]
+\pause
 into a more complex one
 \[ z_K = f_K \circ \dots \circ f_2 \circ f_1(z_0 \param \lambda)\]
 where $f_i(z_{i-1}\param \lambda)$'s are \textbf{invertible} transformations (whose parameters are
@@ -129,7 +135,7 @@ absorbed by $\lambda$).
 
 \begin{frame}
 \thetitle{Flows \citep{Rezende2015,Kingma2016}}
-Sample from final variational posterior is given by $z_K$. By the change of variables formula
+Sample from final variational posterior is given by $z_K$. Density is given by the change of variables formula:
 \begin{align*}
 \log q_K(z_K \given &x \param \lambda) = \log q(z_0 \given x \param \lambda) + 
 \sum_{k=1}^K \log \Big | \frac{\partial f_k^{-1}}{\partial z_{k}}\Big |  \\
@@ -181,7 +187,7 @@ Examples of $f_k(z_{k-1} \param \lambda )$
 
     \air
     \air
-
+\pause
     Consider:
     \begin{align*}
         I_K = \frac{1}{K} \sum_{k=1}^K \frac{p(x, z^{(k)} \param \theta)}{q(z^{(k)} \given x \param \lambda)},

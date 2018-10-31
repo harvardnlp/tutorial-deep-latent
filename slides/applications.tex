@@ -1,31 +1,27 @@
 
 \subsection{Sentence VAE}
 \begin{frame}
-\thetitle{Text VAE Example \citep{Bowman2016}}
+\thetitle{Sentence VAE Example \citep{Bowman2016}}
 Generative Model (Model 2):
 \begin{itemize}
     \item Draw $\boldz \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$
-    \item Until end-of-sentence:
-    \begin{itemize}
-    %\item Set $\boldh_{\boldz,t} = \LSTM(\boldh_{\boldz,t-1}, [\boldx_{t} ; \boldz])$
-    \item Draw $x_{t} \given x_{<t}, \boldz \sim \RNNLM( \theta, \boldz)$
+    \item Draw $x_{t} \given  \boldz \sim \CRNNLM( \theta, \boldz)$
     %p(x_t \given x_{<t},\boldz \param \theta)$
     %\item Draw $x_{t+1} \given x_{<t}, \boldz \sim \softmax(\mathbf{W}\boldh_{\boldz,t})$ %p(x_t \given x_{<t},\boldz \param \theta)$
     % \[  \]
     % \[ p(x_t \given x_{<t}, \boldz ) = \softmax(\mathbf{W}\boldh_{\boldz,t-1})_{x_t}\]
-    \end{itemize}
+
 \end{itemize}
 
 Variational Model (Amortized): Deep Diagonal Gaussians, 
 \[ q(\boldz \given x \param \lambda ) = \mathcal{N}(\boldsymbol{\mu}, \boldsymbol{\sigma^2}) \]
-\[ \tilde{\boldh}_T = \LSTM(x; \pi) \]
-\[ \boldsymbol{\mu} = \mathbf{W}_1\tilde{\boldh}_T \,\,\,\,\,\,\,\,\,\, \boldsymbol{\sigma^2} = \exp(\mathbf{W}_2 \tilde{\boldh}_T)\]
-\[ \lambda = \{\mathbf{W}_1, \mathbf{W}_2, \pi\}\]
+\[ \tilde{\boldh}_T = \RNN(x; \psi) \]
+\[ \boldsymbol{\mu} = \mathbf{W}_1\tilde{\boldh}_T \,\,\,\,\,\,\,\,\,\, \boldsymbol{\sigma^2} = \exp(\mathbf{W}_2 \tilde{\boldh}_T)\ \ \ \lambda = \{\mathbf{W}_1, \mathbf{W}_2, \psi\}\]
 \end{frame}
 
 
 \begin{frame}
-\thetitle{Text VAE Example \citep{Bowman2016}}
+\thetitle{Sentence VAE Example \citep{Bowman2016}}
 \center
 \includegraphics[scale=0.33]{pics/seq2seq_vae_text.png} \\
 
@@ -65,6 +61,10 @@ Variational Model (Amortized): Deep Diagonal Gaussians,
 \end{scope}
 
  \node(eps)[latent,  above = 5mm of z]{$\epsilon$};
+%  \draw[->, decorate, decoration={zigzag,
+%     segment length=4,
+%     amplitude=.9,post=lineto,
+%     post length=2pt}] (eps) -- (z);
 \draw (eps) edge[->] node (mid){} (z);
 \draw (zl) edge[dashed]  (mid);
 
@@ -131,19 +131,21 @@ Variational Model (Amortized): Deep Diagonal Gaussians,
 % \end{frame} 
 
 \begin{frame}
-\thetitle{Issue: Posterior Collapse}
+\thetitle{Issue 1: Posterior Collapse}
+
+\vspace{-0.5cm}
 
 \begin{eqnarray*} 
-\ELBO(\theta, \lambda) &= \displaystyle \E_{q(z \given x \param \lambda)}[\log \frac{p( x, z \param \theta)}{ q(z \given x \param \lambda)}] \\\\
+\ELBO(\theta, \lambda) &=  \E_{q(z \given x \param \lambda)}[\log \frac{p( x, z \param \theta)}{ q(z \given x \param \lambda)}] \\\\
 &= \underbrace{\E_{q(z \given x \param \lambda)}[\log p( x \given z \param \theta)]
 }_{\text{Reconstruction likelihood}} - \underbrace{\KL[q(z \given x \param \lambda) \Vert p(z)]}_{\text{Regularizer}} 
 \end{eqnarray*}
 \center
-
 \vspace{5mm}
+
 \begin{tabular}{l c c c }
 \toprule
-     Model & LL/ELBO & Reconstruction & KL \\
+     Model & L/ELBO & Reconstruction & KL \\
 \midrule     
      RNN LM & -329.10 & - & - \\
      RNN VAE & -330.20 & -330.19 & 0.01 \\
@@ -154,7 +156,7 @@ Variational Model (Amortized): Deep Diagonal Gaussians,
 \end{frame} 
 
 \begin{frame}
-\thetitle{Issue: Posterior Collapse}
+\thetitle{Issue 1: Posterior Collapse}
 \begin{itemize}
 %   \item Posterior collapse: $x$ and $z$ are independent and the generative model $p(x, z \param \theta)$
 %     reduces to a standard language model (without latent variables).
@@ -165,8 +167,7 @@ Variational Model (Amortized): Deep Diagonal Gaussians,
     \air
     % \item \citet{Chen2017}: With a fully autoregressive/powerful likelihood model $p(x \given z \param \theta)$,    if it is possible to model $p_\star(x)$ without making use of $z$, then optimum is at
     \item \citet{Chen2017}: If it's possible to model $p_\star(x)$ without making use of $z$, then ELBO optimum is at:    
-    \[ p_\star(x) = p(x \given z \param \theta) = p(x \param \theta) \]
-    \[ q(z \given x \param \lambda) = p(z) \]
+    \[ p_\star(x) = p(x \given z \param \theta) = p(x \param \theta) \ \ \ \ q(z \given x \param \lambda) = p(z) \]
     \[ \KL[q(z \given x \param \lambda) \Vert p(z)] = 0\] 
 \end{itemize}
 \end{frame} 
@@ -218,17 +219,17 @@ In practice, often necessary to combine various methods.
 \end{frame} 
 
 \begin{frame}
-\thetitle{Issue: Evaluation}
+\thetitle{Issue 2: Evaluation}
 \begin{itemize}
     \item ELBO always lower bounds $\log p(x \param \theta)$, so can calculate an upper bound on PPL efficiently.
-    \item When reporting ELBO, should also separately report
+    \item When reporting ELBO, should also separately report,
     \[ \KL[q(z \given x \param \lambda) \Vert p(z)] \] 
     to give an indication of how much the latent variable is being ``used".
 \end{itemize}
 \end{frame} 
 
 \begin{frame}
-\thetitle{Issue: Evaluation}
+\thetitle{Issue 2: Evaluation}
     
     Also can evaluate $\log p(x \param \theta)$ with importance sampling
     \begin{align*}
@@ -270,7 +271,7 @@ Qualitative evaluation
 \textbf{Generative process:}
   \begin{itemize}
      %\item Set $\boldh_t = \RNN(\boldh_{t-1}, [\boldx_t, \benc(s)])$.
-      \item Draw $x_{1:T} \given s \sim \RNNLM(\theta, \benc(s))$.
+      \item Draw $x_{1:T} \given s \sim \CRNNLM(\theta, \benc(s))$.
   \end{itemize}
 
 
@@ -340,15 +341,13 @@ Qualitative evaluation
 \end{center}
 \air 
 \air
-If $\boldU \in \reals^{K \times d}$, we have $K$ experts; increases the flexibility of the per-token distribution.
-
-
+If $\boldU \in \reals^{K \times d}$, used $K$ experts; increases the flexibility of per-token distribution.
 
 \end{frame}
 
 \begin{frame}
-\thetitle{Latent, Per-token Experts~\citep{yang2018breaking}}
-\textbf{Learning:} $z_t$ are independent given $x_{<t}$, so we can marginalize at each time-step (coordinate ascent).
+\thetitle{Case-Study: Latent Per-token Experts~\citep{yang2018breaking}}
+\textbf{Learning:} $z_t$ are independent given $x_{<t}$, so we can marginalize at each time-step (Method 3: Conjugacy).
     \begin{align*}
         &\argmax_{\theta} \log p(x \given s \param \theta) =  \\
         &\argmax_{\theta} \log \prod_{t=1}^T \sum_{k=1}^K p(z_t {=} k \given s, x_{<t} \param \theta) \, p(x_t \given z_t{=}k, x_{<t}, s \param \theta).
@@ -361,7 +360,7 @@ If $\boldU \in \reals^{K \times d}$, we have $K$ experts; increases the flexibil
 \end{frame}
 
 \begin{frame}
-    \thetitle{Latent, Per-token Experts~\citep{yang2018breaking}}
+    \thetitle{Case-Study: Latent, Per-token Experts~\citep{yang2018breaking}}
 PTB language modeling results ($s$ is constant):
 \air
 \begin{table}
@@ -402,7 +401,7 @@ Dialogue generation results ($s$ is context):
 
 Decoding with an attention mechanism:
 
-\[x_{t} \given x_{< t}, s  \sim \softmax(\boldW [\boldh_{t-1}, {\sum_{m=1}^M} \alpha_{t,m} \,  \benc(s_m)]).\]
+\[x_{t} \given x_{< t}, s  \sim \softmax(\boldW [\boldh_{t}, {\sum_{m=1}^M} \alpha_{t,m} \,  \benc(s)_m]).\]
 
 
 % \air
@@ -413,21 +412,19 @@ Decoding with an attention mechanism:
 \end{frame}
 
 \begin{frame}
-\thetitle{Copy Attention}
-Copy attention~\citep{gu2016incorporating,gulcehre2016pointing} models copying words directly from $s$.
+\thetitle{Copy Attention \citep{gu2016incorporating,gulcehre2016pointing}}
+Copy attention models copying words directly from $s$.
 \air
 
-\textbf{Given:} Source information $s = s_1, \ldots, s_M$.
-\air
 
 \textbf{Generative process:} For $t=1, \ldots, T$,
 \begin{itemize}
     %\item Set $\boldh_t = \RNN([\boldx_t, \benc(s)], \boldh_{t-1})$.
     \item Set $\balpha_t$ to be attention weights.
-    \item Draw $z_{t} \given x_{< t}, s \sim \mathrm{Bern}(\MLP([\boldh_{t-1}, \benc(s)]))$.
+    \item Draw $z_{t} \given x_{< t}, s \sim \mathrm{Bern}(\MLP([\boldh_{t}, \benc(s)]))$.
     \item If $z_{t} = 0$
     \begin{itemize}
-        \item Draw $x_{t} \given z_{t}, x_{< t}, s \sim \softmax(\boldW \boldh_{t-1})$.
+        \item Draw $x_{t} \given z_{t}, x_{< t}, s \sim \softmax(\boldW \boldh_{t})$.
     \end{itemize}
     \item Else 
     \begin{itemize}
@@ -456,8 +453,7 @@ Copy attention~\citep{gu2016incorporating,gulcehre2016pointing} models copying w
 
 \begin{frame}
 \thetitle{Attention as a Latent Variable~\citep{deng2018}}
-\textbf{Given:} Source information $s = s_1, \ldots, s_M$.
-\air
+
 
 \textbf{Generative process:} For $t=1, \ldots, T$,
 \begin{itemize}
@@ -513,7 +509,7 @@ Standard attention likelihood:
 
 \begin{itemize}
     \item $q(z_t \given x \param \lambda)$ approximates $p(z_t \given x_{1:T}, s \param \theta)$; implemented with a BLSTM.
-    \item $q$ isn't reparameterizable, so gradients wrt $\lambda$ obtained using REINFORCE + baseline.
+    \item $q$ isn't reparameterizable, so gradients obtained using REINFORCE + baseline.
 \end{itemize}
 
 \end{frame}
@@ -552,15 +548,15 @@ At least two EMNLP 2018 papers augment encoder/decoder text generation models wi
     
 \end{frame}
 
-\subsection{Latent Summaries}
+\subsection{Latent Summaries and Topics}
 
 \begin{frame}
 \thetitle{Summary as a Latent Variable~\citep{miao2016language}}
 Generative process for a document $x = x_1, \ldots, x_T$:
 \begin{itemize}
-    \item Draw a latent summary $z_1, \ldots, z_{M} \sim p(z_1, \ldots, z_{M} \param \theta)$
-    \item Draw $x_1, \ldots, x_{T} \given z_{1:M} \sim p(x_1, \ldots, x_T \given z_{1:M} \param \theta)$
-    \item ($p(z \param \theta)$ and $p(x \given z \param \theta)$ modeled with encoder/decoder RNNs).
+    \item Draw a latent summary $z_1, \ldots, z_{M} \sim \RNNLM(\theta) $%p(z_1, \ldots, z_{M} \param \theta)$
+    \item Draw $x_1, \ldots, x_{T} \given z_{1:M} \sim \CRNNLM(\theta, z) $ %p(x_1, \ldots, x_T \given z_{1:M} \param \theta)$
+    %\item ($p(z \param \theta)$ and $p(x \given z \param \theta)$ modeled with encoder/decoder RNNs).
 \end{itemize}
 
 % \air
@@ -571,7 +567,8 @@ Generative process for a document $x = x_1, \ldots, x_T$:
 \air
 \air
 \pause
-\textbf{Note:} previously we cared most about the model generating $x_{1:T}$; here we care most about \textit{inference}: 
+%\textbf{Note:} previously we cared most about the model generating $x_{1:T}$; here we care most about \textit{inference}: 
+Posterior Inference:
 \begin{align*}
 p(z_{1:M} \given x_{1:T} \param \theta) = p(\text{summary} \given \text{document} \param \theta).    
 \end{align*}
@@ -579,16 +576,14 @@ p(z_{1:M} \given x_{1:T} \param \theta) = p(\text{summary} \given \text{document
 
 \begin{frame}
 \thetitle{Summary as a Latent Variable~\citep{miao2016language}}
-\textbf{Learning:} Maximize the ELBO with AVI:
-
+\textbf{Learning:} Maximize the ELBO with amortized  family:
 \begin{align*}
-    \max_{\lambda, \theta} \E_{q(z_{1:M} \param \lambda)} &\left[\log p(x_{1:T} \given z_{1:M} \param \theta) \right] \\
-    &- \KL[q(z_{1:M} \param \lambda) \Vert p(z_{1:M} \param \theta)]
+    \max_{\lambda, \theta} \E_{q(z_{1:M} \param \lambda)} &\left[\log p(x_{1:T} \given z_{1:M} \param \theta) \right] - \KL[q(z_{1:M} \param \lambda) \Vert p(z_{1:M} \param \theta)]
 \end{align*}
 
 \begin{itemize}
     \item $q(z_{1:M} \param \lambda)$ approximates $p(z_{1:M} \given x_{1:T} \param \theta)$; also implemented with encoder/decoder RNNs.
-    \item $q(z_{1:M} \param \lambda)$ not reparameterizable, so gradients wrt $\lambda$ use REINFORCE + baselines.
+    \item $q(z_{1:M} \param \lambda)$ not reparameterizable, so gradients use REINFORCE + baselines.
 \end{itemize}
 
 \end{frame}
@@ -607,7 +602,6 @@ p(z_{1:M} \given x_{1:T} \param \theta) = p(\text{summary} \given \text{document
 \end{itemize}
 \end{frame}
 
-\subsection{Deep Topic Models}
 
 \begin{frame}
 \thetitle{Topic Models~\citep{blei2003latent}}
@@ -632,7 +626,7 @@ Generative process: for each document $x^{(n)} = x^{(n)}_1, \ldots, x^{(n)}_T$,
 
 \begin{frame}
 \thetitle{Simple, Deep Topic Models~\citep{miao2017nvi}}
-\textbf{Motivation:} easy to learn deep topic models with AVI if $q(\boldz^{(n)}_{top} \param \lambda)$ is reparameterizable.
+\textbf{Motivation:} easy to learn deep topic models with VI if $q(\boldz^{(n)}_{top} \param \lambda)$ is reparameterizable.
 
 \air
 \air
@@ -680,4 +674,8 @@ Perplexities on held-out documents, for three datasets:
 \bottomrule
 \end{tabular}
 \end{table}
+
+
+
+
 \end{frame}

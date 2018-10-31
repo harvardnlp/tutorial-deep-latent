@@ -8,10 +8,12 @@
     Context: RNN language models are remarkable at this task,
     \[ x_{1: T}\sim  \RNNLM(x_{1:T}; \theta). \]
      
+     \pause
     Defined as, 
     \begin{align*}
-     p(x_{1:T}) &= \prod_{t=1}^T p(x_t \given x_{<t})\\
-     &= \prod_{t=0}^{T-1} \softmax(\boldW \RNN(\boldh_{t-1}, \boldx_{t};\theta))_{x_{t+1}}.
+     p(x_{1:T}) &= \prod_{t=1}^T p(x_t \given x_{<t})
+     = \prod_{t=1}^{T} \softmax(\boldW \boldh_t)_{x_{t}} \\ 
+     & \text{where}\ \  \ \boldh_t = \RNN(\boldh_{t-1}, \boldx_{t-1};\theta)
     \end{align*}
     % \[ p(x_{1:T})  = \prod_{t=1}^T p(x_t \given x_{<t}) = \prod_{t=1}^T \softmax(\RNN(\boldh_{t-1}, x_t;\theta)). \]
 \begin{center}
@@ -62,24 +64,25 @@
     \thetitle{A Collection of Model Archetypes}
     Focus: semi-supervised or unsupervised learning, i.e. don't just learn the probabilities, but the process.
     \vspace{0.5cm}
-    
+    \pause
     Range of choices in selecting $z$ 
     \begin{enumerate}
-        \item Discrete LVs $z$ (``Clustering'')
-        \item Continuous LVs $z$ (``Dimensionality reduction'')
-        \item Structured LVs $z$ (``Structured prediction'')
+        \item Discrete LVs $z$ (\textit{Clustering})
+        \item Continuous LVs $z$ (\textit{Dimensionality reduction})
+        \item Structured LVs $z$ (\textit{Structured learning})
     \end{enumerate}
-    We consider one classical / one deep model for each.
-    
     
     \vspace{0.5cm}
-    Main goal will be posterior inference / Bayes rule.
-    \[ p(z \given x \param \theta ) \propto p(z; \theta) p(x \given z ;\theta) \]
+    %Main goal will be posterior inference / Bayes rule.
+    %\[ p(z \given x \param \theta ) \propto p(z; \theta) p(x \given z ;\theta) \]
 \end{frame}
+
 
 \subsection{Discrete Models}
 \begin{frame}
-\thetitle{Model 1: Discrete - Clustering}
+\thetitle{Model 1: Discrete Clustering}
+
+Inference Process: 
 
 \begin{center}
 \begin{tikzpicture}
@@ -90,10 +93,13 @@
 \draw[->] (x1) -- (x3);
 \end{tikzpicture}
 \end{center}
+\pause
 
 
+Discrete latent variable models induce a clustering over sentences $x^{(n)}$. 
+\air 
 
-Categorical latent variable models induce a clustering over sentences $x^{(n)}$
+Example uses: 
 
  \begin{itemize}
      \item Document/sentence clustering~\citep{willett1988recent,aggarwal2012survey}.
@@ -103,14 +109,14 @@ Categorical latent variable models induce a clustering over sentences $x^{(n)}$
 \end{frame}
 
 \begin{frame}
-\thetitle{Model 1: Discrete - Mixture of Multinomials}
+\thetitle{Model 1: Discrete - Mixture of Categoricals}
 
 \vspace{0.25cm}
 
 Generative process: 
 \begin{enumerate}
-\item Draw cluster $z \in \{1, \ldots, K\}$ from a Categorical with param $\mu$.
-\item For each $t$, draw word $x_t$ from Categorical with word distribution $\pi_{z}$.
+\item Draw cluster $z \in \{1, \ldots, K\}$ from a categorical with param $\mu$.
+\item Draw word $T$ words $x_t$ from a categorical with word distribution $\pi_{z}$.
 \end{enumerate}
 \air
 Parameters: $\theta = \{\mu, \pi\}$
@@ -121,7 +127,8 @@ Parameters: $\theta = \{\mu, \pi\}$
 
 Gives rise to the "Naive Bayes" distribution:
 \begin{align*}
-     p(x, z \param \theta) = p(z \param \mu) \times p(x \given z \param \pi) = \mu_{z} \times  \prod_{t=1}^T \pi_{z, x_t}
+     p(x, z \param \theta) = p(z \param \mu) \times p(x \given z \param \pi) &= \mu_z \times \prod_{t=1}^T \text{Cat}(x_t ; \pi)\\ 
+     &=  \mu_{z} \times  \prod_{t=1}^T \pi_{z, x_t}
 \end{align*}
 \end{frame}
 
@@ -156,11 +163,11 @@ Gives rise to the "Naive Bayes" distribution:
 \end{center}
 
 \air
-\air
+
 
 \begin{align*}
      \prod_{n=1}^N p(x^{(n)}, z^{(n)} \param \mu, \pi) &= \prod_{n=1}^N p(z^{(n)} \param \mu) \times p(x^{(n)} \given z^{(n)} \param \pi) \\
-     &= \prod_{n=1}^N \mu_{z^{(n)}}   \prod_{t=1}^T \pi_{z^{(n)},  x^{(n)}_t}
+     &= \prod_{n=1}^N \mu_{z^{(n)}}   \times \prod_{t=1}^T \pi_{z^{(n)},  x^{(n)}_t}
 \end{align*}
 \end{frame}
 
@@ -173,7 +180,7 @@ Gives rise to the "Naive Bayes" distribution:
 
 Generative process: 
 \begin{enumerate}
-\item Draw cluster $z \in \{1, \ldots, K\}$ from a Categorical.
+\item Draw cluster $z \in \{1, \ldots, K\}$ from a categorical.
 \item Draw words $x_{1:T}$ from RNNLM with parameters $\pi_z$.
 \end{enumerate}
 \[p(x, z \param \theta) 
@@ -216,31 +223,57 @@ Generative process:
 %p(x_1, \ldots, x_T \given z) &= \prod_{t=1}^{T} p(x_{t} \given x_{<t} , z) 
 %\end{align*}
 
-\pause
-\air
-\air
-\air
 
 \end{frame}
 
+\begin{frame}
+\thetitle{Difference Between Models }
+    
+    
+    
+   % Note the difference in the number of token parameters: 
+\begin{itemize}
+\item Dependence structure:
+\begin{itemize}
+    \item Mixture of Categoricals: $x_t$ independent of other $x_j$ given $z$.
+    \item Mixture of RNNs: $x_t$ fully dependent.
+\end{itemize}
+Interesting question: how will this affect the learned latent space?
+\air
+\pause
+
+\item Number of parameters:
+\begin{itemize}
+\item Mixture of Categoricals: $K \times V $.
+    \item Mixture of RNNs: $K \times d^2 + V \times d$ with RNN with $d$ hidden dims.
+\end{itemize}
+\end{itemize}
+
+\end{frame}
 
 \begin{frame}
-\thetitle{Not so Naive, Still a bit Bayes}
-Note the difference in the number of token parameters: 
-\begin{itemize}
-    \item Order $K \times V $ Categorical parameters.
-    \item Order $K \times d^2 + V \times d$ with RNN with $d$ hidden dims
-\end{itemize}
+\thetitle{Posterior Inference}
+For both discrete models, can apply Bayes' rule:
 
-\vspace{0.5cm}
+%\vspace{0.5cm}
+\begin{align*}
+    p(z \given x \param \theta) &= \frac{p(z ) \times p(x \given z )}{p(x )}\\
+    \pause
+    &= \frac{p(z) \times p(x \given z )}{\displaystyle \sum_{k=1}^K p(z{=}k ) \times p(x \given z{=}k )}
+    % \propto \mu_{z} \times \displaystyle \RNNLM(x_{1:T} \param \pi_z)
+\end{align*}
 
-Bayes Rule still possible, but requires more work,
+\air
+\air
+
+\pause
 \begin{itemize}
-    \item Posterior requires running all $K$ RNNs: \[p(z \given x) \propto \mu_{z} \times \displaystyle \RNNLM(x_{1:T} \param \pi_z) \]
+    \item For mixture of categoricals, posterior uses word counts under each $\pi_k$.
+    \item For mixture of RNNs, posterior requires running RNN over $x$ for each $k$.
+    % \[p(z \given x) = \mu_{z} \times \displaystyle \RNNLM(x_{1:T} \param \pi_z) \]
+    % \item Posterior requires running all $K$ RNNs: \[p(z \given x) \propto \mu_{z} \times \displaystyle \RNNLM(x_{1:T} \param \pi_z) \]
 % \[p(z \given x) \propto \mu_{z} \times \displaystyle \prod_{t=1}^T \softmax(\RNN(\boldh_{t-1}, x_t\param \pi_z))\]    
 \end{itemize}
-
-    
 \end{frame}
 
 % \begin{frame}
@@ -266,8 +299,8 @@ Bayes Rule still possible, but requires more work,
 \subsection{Continuous Models}
 
 \begin{frame}
-\thetitle{Model 2: Continuous - Dimensionality Reduction}
-
+\thetitle{Model 2: Continuous / Dimensionality Reduction}
+Inference Process:
 \begin{center}
 \begin{tikzpicture}
 % nodes
@@ -286,38 +319,31 @@ Bayes Rule still possible, but requires more work,
 \end{tikzpicture}
 \end{center}
 
-Find a lower-dimensional, well-behaved  continuous representation of a sentence.
-\air 
+\pause 
 
-Latent variables in $\reals^d$ make distance/similarity easy. 
-
-\begin{itemize}
-    \item Certain sentence embeddings (e.g., Skip-Thought vectors~\citep{kiros2015skip}) can be interpreted in this way.
-\end{itemize}
-
-\pause
-Continuous-value more convenient from a VAE perspective:
+Find a lower-dimensional, well-behaved  continuous representation of a sentence. Latent variables in $\reals^d$ make distance/similarity easy.  Examples: 
 \begin{itemize}
     \item Recent work in text generation assumes a latent vector per sentence~\citep{Bowman2016,Yang2017,hu2017toward}.
+    \item Certain sentence embeddings (e.g., Skip-Thought vectors~\citep{kiros2015skip}) can be interpreted in this way.
 \end{itemize}
 \end{frame}
 
 \begin{frame}
-\thetitle{Model 2: Continuous - Sentence Topic Model}
+\thetitle{Model 2: Continuous "Mixture" }
 \vspace{0.25cm}
 
 Generative Process:
 \begin{enumerate}
-    \item Draw continuous latent variable $\boldz$ from Dirichlet with param $\alpha$.
-    \item For each $t$, draw word $x_t$ from Categorical with param $z$.
+    \item Draw continuous latent variable $\boldz$ from Normal with param $\mu$.
+    \item For each $t$, draw word $x_t$ from categorical with param $\softmax(\boldW z)$.
 \end{enumerate}
 \air
 
-Parameters: $\theta= \{\alpha\}$
+Parameters: $\theta= \{\mu, \pi\}, \pi = \{ \boldW \}$
 
 \air
 
-Intuition: $\alpha$ is the distribution over words generally, $\boldz$ captures the topical word distribution of the sentence. 
+Intuition: $\mu$ is a global distribution, $\boldz$ captures local word distribution of the sentence. 
 \end{frame}
 
 \begin{frame}
@@ -333,8 +359,8 @@ Intuition: $\alpha$ is the distribution over words generally, $\boldz$ captures 
  \node[obs, left=1cm of dots] (x1) {$x_1^{(n)}$};%
  \node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
  \node[latent, above=of dots] (z) {$z^{(n)}$}; %
- \node[const, above=of z] (mu) {$\alpha$};
- %\node[const, below left=0.3cm and 0.8cm of x1] (pi) {$\theta$};
+ \node[const, above=of z] (mu) {$\mu$};
+ \node[const, below left=0.3cm and 0.8cm of x1] (pi) {$\pi$};
 % plate
  \plate {plate1} {(dots)(x1)(xT)(z)} {$N$}; %
 % edges
@@ -342,7 +368,7 @@ Intuition: $\alpha$ is the distribution over words generally, $\boldz$ captures 
  \edge {z} {x1};
  \edge {z} {xT};
  \edge {mu} {z};
- %\edge {pi.east} {x1,xT};
+ \edge {pi.east} {x1,xT};
  %}
  \end{tikzpicture}
  %}
@@ -353,33 +379,35 @@ Intuition: $\alpha$ is the distribution over words generally, $\boldz$ captures 
 
 Gives rise to the joint distribution:
 \begin{align*}
-     \prod_{n=1}^N p(x^{(n)}, z^{(n)} \param \alpha) &= \prod_{n=1}^N p(z^{(n)} \param \alpha) \times p(x^{(n)} \given z^{(n)} ) \\
-     &= \prod_{n=1}^N \prod_{v=1}^V  (z^{(n)})^{\alpha_v + \sum_{t=1}^T  1(x^{(n)}_t = v)}  \\
+     \prod_{n=1}^N p(x^{(n)}, z^{(n)} \param \theta) &= \prod_{n=1}^N p(z^{(n)} \param \mu) \times p(x^{(n)} \given z^{(n)} \param \pi ) %\\
+    % &= \prod_{n=1}^N \prod_{v=1}^V  (z^{(n)})^{\alpha_v + \sum_{t=1}^T  1(x^{(n)}_t = v)}  \\
      \end{align*}
 \end{frame}
 
 
 \begin{frame}
-\thetitle{Deep Model 2: Continuous - Topic Latent}
+\thetitle{Deep Model 2: Continuous "Mixture" of RNNs}
 Generative Process:
 
 \begin{enumerate}
-    \item Draw latent variable $\boldz \sim \mcN(\bmu, \bSigma)$.
+    \item Draw latent variable $\boldz \sim \mcN(\bmu, \boldI)$.
     \item Draw each token $x_t$ from a conditional RNNLM. 
 \end{enumerate}
-
+\air 
+\pause
 
 RNN is also conditioned on latent $\boldz$,  
 \begin{align*}
-     p(x, \boldz \param \pi, \bmu, \bSigma)  &= p(\boldz \param \bmu, \bSigma) \times p(x \given \boldz \param \pi) \\ 
-      &  = \mcN(\boldz \param \bmu, \bSigma)  \times \RNNLM(x_{1:T}  \param \pi,  \boldz)
+     p(x, \boldz \param \pi, \bmu, \boldI)  &= p(\boldz \param \bmu, \boldI) \times p(x \given \boldz \param \pi) \\ 
+      &  = \mcN(\boldz \param \bmu, \boldI)  \times \CRNNLM(x_{1:T}  \param \pi,  \boldz)
     %   &  = \mcN(z\param \mu, \Sigma)  \prod_{t=1}^T \softmax(\RNN(\boldh_{t-1}, \MLP([x_t, z]); \pi))      
 \end{align*}
+\pause
 
 where 
 \begin{align*} 
-&\RNNLM(x_{1:T}  \param \pi, \boldz) \\
-&= \prod_{t=0}^{T-1} \softmax(\boldW \RNN(\boldh_{t-1}, [\boldx_t, \boldz]; \pi))_{x_{t+1}}.
+\CRNNLM(x_{1:T}  \param \pi, \boldz) = \prod_{t=1}^{T} \softmax(\boldW \boldh_t)_{x_{t}} \\ 
+\boldh_t = \RNN(\boldh_{t-1}, \alert{[\boldx_{t-1}; \boldz];} \pi)
 \end{align*}
 
 \end{frame}
@@ -394,8 +422,8 @@ where
  \node[obs, left=1cm of dots] (x1) {$x_1^{(n)}$};%
  \node[obs, right=1cm of dots] (xT) {$x_T^{(n)}$};%
  \node[latent, above=of dots] (z) {$\boldz^{(n)}$}; %
- \node[const, above left=1cm and 0.25cm of z] (mu) {$\bmu$};
- \node[const, above right=1cm and 0.25cm of z] (sigma) {$\bSigma$};
+ \node[const, above=1cm and 0.25cm of z] (mu) {$\bmu$};
+% \node[const, above right=1cm and 0.25cm of z] (sigma) {$$};
  \node[const, below left=0.6cm and 0.6cm of x1] (pi) {$\pi$};
  
 % plate
@@ -405,7 +433,7 @@ where
  \edge {z} {x1};
  \edge {z} {xT};
  \edge {mu} {z};
- \edge {sigma} {z};
+ %\edge {sigma} {z};
  \edge {x1} {dots};
  %\edge[bend left] {x1.south} {xT.south};
   \edge {dots} {xT};
@@ -422,14 +450,42 @@ where
 \end{frame}
 
 
+\begin{frame}
+\thetitle{Posterior Inference}
+    
+    
+    For continuous models, Bayes' rule is harder to compute,
+\begin{align*}
+    p(z \given x \param \theta) 
+    &= \frac{\displaystyle p(z \param \mu) \times p(x \given z \param \pi)}{\displaystyle \int_z p(z\param \mu) \times p(x \given z \param \pi) \, dz}
+    % \propto \mu_{z} \times \displaystyle \RNNLM(x_{1:T} \param \pi_z)
+\end{align*}
+
+\air
+\air
+
+\pause
+\begin{itemize}
+    \item Shallow and deep Model 2 variants mirror Model 1 variants exactly, but with continuous $z$.
+    \item Integral intractable (in general) for both shallow and deep  variants.
+    %For mixture of RNNs, posterior requires running RNN over $x$ for each $k$.
+    % \[p(z \given x) = \mu_{z} \times \displaystyle \RNNLM(x_{1:T} \param \pi_z) \]
+    % \item Posterior requires running all $K$ RNNs: \[p(z \given x) \propto \mu_{z} \times \displaystyle \RNNLM(x_{1:T} \param \pi_z) \]
+% \[p(z \given x) \propto \mu_{z} \times \displaystyle \prod_{t=1}^T \softmax(\RNN(\boldh_{t-1}, x_t\param \pi_z))\]    
+\end{itemize}    
+    
+\end{frame}
 
 \subsection{Structured Models}
 
 \begin{frame}
-\thetitle{Model 3: Structured Prediction}
+\thetitle{Model 3: Structure Learning}
+Inference Process:
+
 \begin{center}
 \begin{tikzpicture}
 % nodes
+
 \node[draw, text width=5cm, rounded corners] (x1) {\footnotesize In an old house in Paris that was covered with vines lived twelve little girls in two straight lines.};%
 
 \begin{scope}[xshift=5cm]
@@ -450,7 +506,7 @@ where
 \end{center}
 
 
-Structured latent variable models are often used when we would like to infer unannotated structure:
+Structured latent variable models are used to infer unannotated structure:
 
 \begin{itemize}
     \item Unsupervised POS tagging~\citep{brown1992class,merialdo1994tagging,smith2005contrastive}
@@ -470,8 +526,8 @@ Or when structure is useful for \textit{interpreting} our data:
 Generative Process:
 
 \begin{enumerate}
-    \item For each $t$, draw $z_t \in \{1, \ldots, K\}$ from a Categorical with param $\mu_{z_{t-1}}$.
-    \item Draw observed token $x_t$ from Categorical with param $\pi_{z_{t}}$.
+    \item For each $t$, draw $z_t \in \{1, \ldots, K\}$ from a categorical with param $\mu_{z_{t-1}}$.
+    \item Draw observed token $x_t$ from categorical with param $\pi_{z_{t}}$.
 \end{enumerate}
 \air
 Parameters: $\theta = \{ \mu, \pi\}$
@@ -535,8 +591,7 @@ Gives rise to the joint distribution:
 
 \begin{frame}
 \thetitle{Further Extension: Factorial HMM}
-A variety of important extended versions. 
-
+\air
 \begin{center}
 %\scalebox{0.8}{
 \begin{tikzpicture}
@@ -595,11 +650,9 @@ A variety of important extended versions.
  \end{tikzpicture}
  %}
 \end{center} 
-
 \begin{alignat*}{2}
     p(x, z; \ \theta)  &= \prod_{l=1}^L \prod_{t=1}^T p(z_{l,t} \given  z_{l, t-1}) &&\times \prod_{t=1}^T p(x_t \given z_{1:L, t}) \nonumber \\ 
 \end{alignat*}
-
 \end{frame}
 
 
@@ -672,4 +725,27 @@ p(x_t \given z_{t}) = \softmax(\MLP(z_t \param \pi))
     &= \prod_{t=1}^T \mu_{z_{t-1}, z_t} &&\times \prod_{t=1}^T \pi_{z_{t}, x_t}
 \end{alignat*}
 
+\end{frame}
+
+\begin{frame}
+\thetitle{Posterior Inference}
+    
+    
+    For structured models, Bayes' rule may tractable,
+
+    \begin{align*}
+    p(z \given x \param \theta) 
+    &= \frac{p(z \param \mu) \times p(x \given z \param \pi)}{\sum_{z'} p(z' \param \mu) \times p(x \given z' \param \pi)}
+\end{align*}
+
+\air
+\air
+
+\pause
+\begin{itemize}
+    \item Unlike previous models, $z$ contains interdependent ``parts.''
+    \item For \textit{both} shallow and deep Model 3 variants, it's possible to calculate $p(x \param \theta)$ exactly, with a dynamic program.
+    \item For some structured models, like Factorial HMM, the dynamic program may still be intractable.
+\end{itemize}  
+    
 \end{frame}

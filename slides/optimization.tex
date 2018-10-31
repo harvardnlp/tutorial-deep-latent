@@ -1,6 +1,16 @@
 \begin{frame}
-\thetitle{ELBO Objective}
+\thetitle{Maximizing the Evidence Lower Bound}
 
+
+ Central quantity of interest: almost all methods are maximizing the ELBO
+    \[ \argmax_{\theta, \lambda} \ELBO(\theta, \lambda)\] 
+%\end{frame}
+
+\pause
+
+%\begin{frame}
+%\thetitle{ELBO Objective}
+Aggregate ELBO objective, 
     \begin{align*}
         \argmax_{\theta, \lambda} \ELBO(\theta, \lambda)  &=\argmax_{\theta, \lambda}\sum_{n=1}^{N} \ELBO(\theta, \lambda \param x^{(n)})\\
         &= \argmax_{\theta, \lambda} \sum_{n=1}^N \E_{ q}\Big[\log \frac{p(x^{(n)}, z^{(n)} \param \theta)}{q(z^{(n)} \given x^{(n)} \param \lambda)} \Big] 
@@ -18,7 +28,7 @@
 %Maximizing ELBO with respect to $\theta$ is equivalent to maximizing 
 %\[\argmax_{\theta}  \E_{q(z;\lambda)} \log p(x, z \param \theta) \]
 
-\[\argmax_{\theta} \textcolor{red}{\E_{q}\Big[\log \frac{p(x, z \param \theta)}{q(z \given x;\lambda)} \Big]} = \argmax_{\theta}  \E_{q} \log p(x, z \param \theta) \]
+\[\argmax_{\theta} \textcolor{red}{\E_{q}\Big[\log \frac{p(x, z \param \theta)}{q(z \given x;\lambda)} \Big]} = \argmax_{\theta}  \E_{q}[\log p(x, z \param \theta)] \]
 
 \air
 
@@ -35,7 +45,7 @@
     
     \draw[red] (0, 0) rectangle (1, 2.5);
     %\draw[blue] (0, 2.5) rectangle (1, 3);
-    \draw[decorate,decoration={brace,amplitude=5pt}] (1.3, 2.5) -- node[xshift=1.2cm]{$\alert{\text{ELBO}}$} (1.3, 0);
+    \draw[decorate,decoration={brace,amplitude=5pt}] (1.3, 2.5) -- node[xshift=1.2cm]{$\alert{\ELBO}$} (1.3, 0);
     %\draw[decorate,decoration={brace,amplitude=5pt}] (1.3, 3) -- node[xshift=1.5cm]{$\structure{\text{posterior gap}}$} (1.3, 2.5);
 \end{scope}
 \end{tikzpicture}
@@ -47,15 +57,16 @@ Intuition: Maximum likelihood problem under variables drawn from $q(z \given x; 
 
 
 \begin{frame}
-\thetitle{Fitting Model: Gradient Ascent on Model Parameters}
+\thetitle{Model Estimation: Gradient Ascent on Model Parameters}
 Easy: Gradient respect to $\theta$
 \begin{align*}
 \nabla_{\theta} \ELBO(\theta, \lambda \param x) &=  \nabla_\theta \E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big] \\
 &= \E_{q}\Big[\nabla_{\theta} \log p(x^{}, z^{} \param \theta) \Big] 
-\end{align*}\pause
+\end{align*}
 \begin{itemize}
     \item Since $q$ not dependent on $\theta$, $\nabla$ moves inside expectation.
-    \item Estimate with samples from $q$. Term $\log p(x, z \param \theta)$ is easy to evaluate. Single sample is often sufficient. 
+    \pause
+    \item Estimate with samples from $q$. Term $\log p(x, z \param \theta)$ is easy to evaluate. (In practice single sample is often sufficient).
     \item In special cases, can exactly evaluate expectation.
 \end{itemize}
 \end{frame}
@@ -105,18 +116,18 @@ Intuition: $q$ should approximate the posterior $p(z |x)$. However, may be diffi
 \end{frame}
 
 \begin{frame}
-\thetitle{Fitting Variational Parameters: Gradient Ascent on $\lambda$?}
+\thetitle{Model Inference: Gradient Ascent on $\lambda$?}
 Hard: Gradient respect to $\lambda$ 
 \begin{align*}
 \nabla_{\lambda} \ELBO(\theta, \lambda \param x) &=  \nabla_\lambda \E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big] \\
-&\ne \E_{q}\Big[\nabla_{\lambda} \log p(x^{}, z^{} \param \theta) \Big] 
+&\alert{\ne} \E_{q}\Big[\nabla_{\lambda} \log p(x^{}, z^{} \param \theta) \Big] 
 \end{align*}
-\pause
+
 \begin{itemize}
-    \item Cannot naively move $\nabla$ inside the expectation, since  $q$ depends on $\lambda$.
-    \item This section: Fitting $\lambda$ in practice:
+    \item Cannot naively move $\nabla$ inside the expectation, since  $q$ depends on $\lambda$. \pause
+    \item This section: Inference in practice:
         \begin{enumerate}
-        \item Direct 
+        \item Exact gradient 
         \item Sampling: score function, reparameterization
         \item Conjugacy: closed-form, coordinate ascent
     \end{enumerate}
@@ -140,10 +151,11 @@ Hard: Gradient respect to $\lambda$
 %     \end{enumerate}
 % \end{frame}
 
-\subsection{Direct}
+\subsection{Exact Gradient}
 
 \begin{frame}
-\thetitle{Strategy 1: Direct}
+\thetitle{Strategy 1: Exact Gradient}
+
 \begin{align*}
  \nabla_{\lambda} \ELBO(\theta, \lambda &\param x^{}) = \nabla_{\lambda} \E_{ q(z \given x^{} \param \lambda)} \Big[ \log \frac{p(x^{}, z \param \theta)}{q(z \given x^{} \param \lambda)} \Big]\\
  & =  \nabla_{\lambda} \Big( \sum_{z \in \mcZ}q(z \given x^{} \param \lambda) \log \frac{p(x^{}, z \param \theta)}{q(z \given x^{} \param \lambda)} \Big)
@@ -151,8 +163,9 @@ Hard: Gradient respect to $\lambda$
 
 \begin{itemize}
     \item Naive enumeration: Linear in $|\mcZ|$.
+    \pause
     \item Depending on structure of $q$ and $p$, potentially faster with dynamic programming.
-    \item Applicable mainly to Model 1 and 3 (Discrete and Structured Models), or Model 2 with 
+    \item Applicable mainly to Model 1 and 3 (Discrete and Structured), or Model 2 with 
     point estimate. 
 \end{itemize}
 \end{frame}
@@ -184,13 +197,15 @@ Hard: Gradient respect to $\lambda$
      \edge {z} {xT};
      \end{scope}
      \draw (zl) edge[dashed] (z);
-     \draw (zl) edge[dashed, bend right=20] (z);
-     \draw (zl) edge[dashed, bend left=20] (z);
 
      \end{tikzpicture}    
      \end{center}
+     \air
+     
      Let $q(z \given x \param \lambda) = \text{Cat}(\nu)$  where $\nu = \enc(x; \lambda)$ 
      \pause
+     
+    
 \begin{align*}
  \nabla_{\lambda} \ELBO(&\theta, \lambda \param x^{}) = \nabla_{\lambda} \E_{ q(z \given x^{} \param \lambda)} \Big[ \log \frac{p(x^{}, z \param \theta)}{q(z \given x^{} \param \lambda)} \Big]\\
  & =  \nabla_{\lambda} \Big( \sum_{z \in \mcZ}q(z \given x^{} \param \lambda) \log \frac{p(x^{}, z \param \theta)}{q(z \given x^{} \param \lambda)} \Big)\\
@@ -279,10 +294,9 @@ Hard: Gradient respect to $\lambda$
 \end{align*} 
 \pause
 \begin{itemize}
-    \item How can we approximate this gradient with sampling?
-    \item Naive monte-carlo fails to provide non-zero gradient.
+    \item How can we approximate this gradient with sampling?  Naive algorithm fails to provide non-zero gradient.
     \[ z^{(1)}, \dots, z^{(J)} \sim q(z \given x^{} \param \lambda) \]
- \[ \nabla_\lambda \sum_{j=1}^J \Big[ \log p(x^{}, z^{(j)} \param \theta) \Big] = 0\]
+ \[ \nabla_\lambda \frac{1}{J} \sum_{j=1}^J \Big[ \log p(x^{}, z^{(j)} \param \theta) \Big] = 0\]
     \item Manipulate expression so we can move $\nabla_\lambda$ inside $\E_q$ before sampling.
 \end{itemize}
 \end{frame}
@@ -296,8 +310,7 @@ First term. Use basic identity:
 
 Policy-gradient style training \citep{Williams1992}
 \begin{align*}
-&{\color{blue} \nabla_\lambda {\E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big]}}\\
-    &=  \sum_z  \log p(x^{}, z \param \theta) \nabla_\lambda   q(z \given x \param \lambda )  \\ 
+{\color{blue} \nabla_\lambda {\E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big]}}   &= \sum_z  \nabla_\lambda   q(z \given x \param \lambda )   \log p(x^{}, z \param \theta) \\ 
         &{\color{white}=  \sum_z  \log p(x^{}, z \param \theta)  q(z \given x \param \lambda )  \nabla_\lambda \log q(z \given x^{} \param \lambda) } \\ 
     &{\color{white} = \E_{q}\Big[ \log p(x^{}, z \param \theta) \nabla_\lambda \log q(z \given x^{} \param \lambda) \Big]}
 \end{align*}
@@ -322,7 +335,7 @@ Policy-gradient style training \citep{Williams1992}
 \thetitle{Strategy 2a: Sampling --- Score Function Gradient Estimator}
 First term. Use basic identity:
 
-\[\nabla \log q = \frac{\nabla q}{q} \Rightarrow \nabla q  = q \nabla \log q \]
+\[\nabla \log q = \frac{\nabla q}{q}\ \Rightarrow\ \nabla q  = q \nabla \log q \]
 
 Policy-gradient style training \citep{Williams1992}
 \begin{align*}
@@ -392,9 +405,9 @@ Second term. Need additional identity:
 
 \begin{frame}
 \thetitle{Strategy 2a: Sampling --- Score Function Gradient Estimator}
-Putting these togther
+Putting these together,
 \begin{align*}
-       \nabla_\lambda \ELBO(\theta, \lambda ; x) &=  \nabla_\lambda \E_q \Big[\log \frac{\log p(x, z \param \theta)}{\log q (z \given x \param \lambda)} \Big]\\
+       \nabla_\lambda \ELBO(\theta, \lambda ; x) &=  \nabla_\lambda \E_q \Big[\log \frac{ p(x, z \param \theta)}{ q (z \given x \param \lambda)} \Big]\\
        &= \E_q \Big[\log \frac{p(x, z \param \theta)}{q(z \given x \param \lambda)} \nabla_\lambda \log q ( z \given x \param \lambda ) \Big] \\
        &= \E_q \Big[R_{\theta, \lambda}(z) \nabla_\lambda \log q ( z \given x \param \lambda ) \Big]
 \end{align*}
@@ -402,7 +415,7 @@ Putting these togther
 
 \begin{frame}
 \thetitle{Strategy 2a: Sampling --- Score Function Gradient Estimator}
-Estimate with samples 
+Estimate with samples,
 \[ z^{(1)}, \dots, z^{(J)} \sim q(z \given x^{} \param \lambda) \]
 \begin{align*}
         \E_{q}&\Big[ R_{\theta, \lambda}(z)  \nabla_\lambda \log q(z \given x^{} \param \lambda) \Big] \\ &\approx \frac{1}{J}\sum_{j=1}^J R_{\theta, \lambda}(z^{(j)})  \nabla_\lambda \log q(z^{(j)} \given x^{} \param \lambda)
@@ -416,7 +429,8 @@ by moving along the gradient $\nabla_\lambda \log q(z^{(j)} \given x \param \lam
 \thetitle{Strategy 2a: Sampling --- Score Function Gradient Estimator}
 \begin{itemize}
     \item Essentially reinforcement learning with reward $R_{\theta, \lambda}(z)$
-    \item Unbiased estimator for the gradient, but high variance.
+    \item Score function gradient is generally applicable regardless of what distribution $q$ takes (only need to evaluate $\nabla_\lambda \log q$).
+    \item This generality comes at a cost, since the reward is ``black-box": Unbiased estimator for the gradient, but high variance.
     \item In practice, need variance-reducing \textbf{control variate} $B$. (More on this later).
 \end{itemize}    
 %     \item Can be estimated with another neural net regressed on the ``reward", e.g.
@@ -457,7 +471,9 @@ by moving along the gradient $\nabla_\lambda \log q(z^{(j)} \given x \param \lam
 
      \end{tikzpicture}    
      \end{center}
-     Let $q(z \given x \param \lambda) = \text{Cat}(\nu)$  where $\nu = \enc(x; \lambda)$ \\ \pause $z^{(1)}, \dots, z^{(J)} \sim q(z\given x; \lambda)$  
+     Let $q(z \given x \param \lambda) = \text{Cat}(\nu)$  where $\nu = \enc(x; \lambda)$ \\
+
+    \pause Sample $z^{(1)}, \dots, z^{(J)} \sim q(z\given x; \lambda)$  
      
 \begin{align*}
  \nabla_{\lambda} \ELBO(&\theta, \lambda \param x^{}) = \E_q \Big[\log \frac{p(x, z \param \theta)}{q(z \given x \param \lambda)} \nabla_\lambda \log q ( z \given x \param \lambda ) \Big] \\
@@ -469,29 +485,16 @@ by moving along the gradient $\nabla_\lambda \log q(z^{(j)} \given x \param \lam
 
 \begin{frame}
 \thetitle{Strategy 2b: Sampling --- Reparameterization }
-\begin{itemize}
-    \item Score function gradient is generally applicable regardless of what distribution $q$ takes (only need to evaluate $\nabla_\lambda \log q$).
-    \item This generality comes at a cost, since the reward is ``black-box".
-    \item Reparameterization:
+    %\item Score function gradient is generally applicable regardless of what distribution $q$ takes (only need to evaluate $\nabla_\lambda \log q$).
+    %\item This generality comes at a cost, since the reward is ``black-box".
+     
     Suppose we can sample from $q$ by applying a deterministic, differentiable transformation $g$ to a base noise density, 
 \[ \epsilon \sim \mathcal{U} \,\,\,\,\,\,\,\,\,\,\,\,\, z = g(\epsilon, \lambda) \]
-    \end{itemize}
-\end{frame}
-
-% \begin{frame}
-% \thetitle{Strategy 2b: Sampling --- Reparameterization }
-% Example: 
-% \[ q(z \param \lambda) = \mathcal{N}(\mu^{}, \sigma^2)\] where
-% \[ \lambda = [\mu, \sigma]\]
-% Then we can sample from $q$ by
-% \[ \epsilon \sim \mathcal{N}(0, 1) \,\,\,\,\,\,\,\,\,\,\,\,\, z = \mu^{} + \sigma^{}\epsilon\]
-% \end{frame}
-
-\begin{frame}
-\thetitle{Strategy 2b: Sampling --- Reparameterization }
+    \pause 
+    
+Gradient calculation (\structure{first term}):
 \begin{align*}
-    & \nabla_\lambda \E_{{\color{blue} z\sim q(z\given x \param \lambda)}}\Big[ \log p(x^{}, z \param \theta )\Big] \\
-    &= \nabla_\lambda \E_{{\color{blue} \epsilon \sim \mathcal{U}}}\Big[ \log p(x^{}, {\color{blue} g(\epsilon,\lambda) \param \theta) }\Big] \\
+     \nabla_\lambda \E_{{\color{blue} z\sim q(z\given x \param \lambda)}}\Big[ \log p(x^{}, z \param \theta )\Big] &= \nabla_\lambda \E_{{\color{blue} \epsilon \sim \mathcal{U}}}\Big[ \log p(x^{}, {\color{blue} g(\epsilon,\lambda) \param \theta) }\Big] \\
     &=  \E_{{ \epsilon \sim \mathcal{U}}}\Big[\nabla_\lambda \log {p(x^{}, { g(\epsilon,\lambda)} \param \theta) }\Big] \\
     &\approx \frac{1}{J} \sum_{j=1}^J\nabla_\lambda \log {p(x^{}, { g(\epsilon^{(j)},\lambda)} \param \theta) }
 \end{align*}
@@ -504,7 +507,7 @@ where
 \thetitle{Strategy 2b: Sampling --- Reparameterization }
 \center
 \begin{itemize}
-    \item Unbiased like score function gradient estimator, but empirically much lower variance
+    \item Unbiased-like score function gradient estimator, but empirically lower variance.
     \item In practice, single sample is often sufficient.
     \item Cannot be used out-of-the-box for discrete $z$.
 \end{itemize}
@@ -545,10 +548,15 @@ where
  %(dots) edge[bend right] node [right] {} (xT);
 
 \end{scope}
-
+%\tikzset{decoration={snake,amplitude=.4mm,segment length=2mm,post length=0mm,pre length=0mm}}
  \node(eps)[latent,  above = 5mm of z]{$\epsilon$};
-\draw (eps) edge[->] node (mid){} (z);
-\draw (zl) edge[dashed]  (mid);
+%\draw (eps) edge[--] node (mid){} (z);
+% \draw[->, decorate, decoration={snake,amplitude=.4mm,segment length=2mm,post length=0mm,pre length=0mm}] (eps) -- (z);
+\draw[->, decorate, decoration={zigzag,
+    segment length=4,
+    amplitude=.9,post=lineto,
+    post length=2pt}] (eps) -- (z);
+%\draw (zl) edge[dashed]  (mid);
 
 \end{tikzpicture}
 \end{center}
@@ -578,7 +586,7 @@ Choose variational family to be an amortized diagonal Gaussian
 %\end{frame}
 
 \begin{frame}
-\thetitle{Strategy 2b: Sampling}
+\thetitle{Strategy 2b: Sampling --- Reparameterization}
 (Recall $R_{\theta, \lambda}(z) = \log \frac{p(x,z \param \theta)}{q(z \given x \param \lambda)}$)
 \begin{itemize}
 \item Score function:
@@ -589,7 +597,7 @@ Choose variational family to be an amortized diagonal Gaussian
 \[
     \nabla_\lambda \ELBO(\theta, \lambda \param x)  = \E_{\epsilon \sim \mathcal{N}(\mathbf{0}, \mathbf{I})}[\nabla_\lambda R_{\theta, \lambda}(g(\epsilon, \lambda \param x))]
 \]
-    where $g(\epsilon, \lambda \param x) = \mu + \sigma \epsilon$. (VAE)
+    where $g(\epsilon, \lambda \param x) = \mu + \sigma \epsilon$. 
 \end{itemize}
 Informally, reparameterization gradients differentiate through $R_{\theta, \lambda}()$ and thus has ``more knowledge"
 about the structure of the objective function.
@@ -600,34 +608,54 @@ about the structure of the objective function.
 
 \begin{frame}
 \thetitle{Strategy 3: Conjugacy}
-In certain choices for $p$ and $q$, we can compute 
+For certain choices for $p$ and $q$, we can compute parts of 
 \[ \argmax_\lambda \ELBO(\theta, \lambda; x^{}) \]
-(exactly or approximately) without gradient-based methods. \\
+exactly in closed-form. \\
 \air 
 \pause
 Recall that 
 \begin{align*}
-     \argmax_{\lambda^{}} \ELBO(\theta, \lambda^{}; x^{}) =   \argmin_{\lambda^{}}  \KL[q(z  \param \lambda^{}) \Vert p(z \given x^{} \param \theta)] 
+     \argmax_{\lambda^{}} \ELBO(\theta, \lambda^{}; x^{}) =   \argmin_{\lambda^{}}  \KL[q(z \given x \param \lambda^{}) \Vert p(z \given x^{} \param \theta)] 
 \end{align*}
 
 \end{frame}
 
 \begin{frame}
 \thetitle{Strategy 3a: Conjugacy --- Tractable Posterior Inference}
-Suppose we can tractably calculate $p(z \given x^{} \param \theta)$. \\
-\pause
-Then 
-\[  \KL[q(z \param \lambda^{}) \Vert p(z \given x^{} \param \theta)]  \]
-is minimized when 
-\[ q(z \param \lambda^{}) = p(z \given x^{} \param \theta) \]
-(corresponds to the E-step in Expectation Maximization algorithm \citep{dempster77em})
+Suppose we can tractably calculate $p(z \given x^{} \param \theta)$/. Then 
+$  \KL[q(z \given x \param \lambda^{}) \Vert p(z \given x^{} \param \theta)]  $
+is minimized when,
+\[ q(z \given x \param \lambda^{}) = p(z \given x^{} \param \theta) \]
+
+\begin{itemize}
+    \item The  E-step in Expectation Maximization algorithm \citep{dempster77em}
+\end{itemize}
+
+\begin{center}
+\begin{tikzpicture}
+    \draw[decorate,decoration={brace,amplitude=10pt}] (-0.3, 0) -- node[xshift=-0.75cm]{$L$} (-0.3, 3);
+    
+    \draw[red] (0, 0) rectangle (1, 2);
+    \draw[blue] (0, 2) rectangle (1, 3);
+    
+    \draw[->] (1.5, 1.5) --node[yshift=0.5cm]{$\lambda$ } (2.5, 1.5) ; 
+    \begin{scope}[xshift = 3cm]
+    %\draw[decorate,decoration={brace,amplitude=10pt}] (-0.3, 0) -- node[xshift=-0.75cm]{$$} (-0.3, 3);
+    
+    \draw[red] (0, 0) rectangle (1, 3);
+    \draw[blue] (0, 3) rectangle (1, 3);
+    \draw[decorate,decoration={brace,amplitude=5pt}] (1.3, 3) -- node[xshift=1.5cm]{$\alert{\text{ELBO   }}$} (1.3, 0);
+    \draw[decorate,decoration={brace,amplitude=5pt}] (1.3, 3) -- node[xshift=1.5cm]{$\structure{\text{posterior gap}}$} (1.3, 3);
+\end{scope}
+\end{tikzpicture}
+\end{center}
 \end{frame}
 
 \begin{frame}
 \thetitle{Example: Model 2 - Dirichlet-Multinomial}
 
 \begin{itemize}
-    \item $q(z; \lambda^{})= \text{Dir}(\lambda)$ 
+    \item $q(z \param x; \lambda^{})= \text{Dir}(\lambda)$ 
     \item $p(x, z \param \theta)$ is given by
     \begin{align*}
     z &\sim \text{Dir}(\alpha) \\ 
@@ -670,7 +698,7 @@ is minimized when
 \end{frame}
 
 \begin{frame}
-\thetitle{Example: Model 3 --- HMM}
+\thetitle{Reminder: Model 3 --- HMM}
 \begin{center}
 %\scalebox{0.8}{
 \begin{tikzpicture}
@@ -711,27 +739,32 @@ is minimized when
 \end{frame}
 
 \begin{frame}
-\thetitle{Strategy 3a: Conjugacy --- Tractable Posterior Inference}
-Run forward/backward to calculate marginals,
+\thetitle{Example: Model 3 --- HMM}
+Run forward/backward dynamic programming to calculate posterior marginals,
 \[ p(z_t, z_{t+1} \given x^{} \param \theta) \]
 \pause
-$\lambda^{} \in \reals^{TK^2}$ is given by a vector which stores these edge marginals, since they are enough to calculate 
+variational parameters $\lambda^{} \in \reals^{TK^2}$ store edge marginals. These are enough to calculate 
 \[  q(z \param \lambda^{}) = p(z \given x^{} \param \theta) \] 
 (i.e. the exact posterior) over any sequence $z$.
 \end{frame}
 
 \begin{frame}
 \thetitle{Connection: Gradient Ascent on Log Marginal Likelihood}
-Suppose directly marginalizing 
+Why not perform gradient ascent directly on log marginal likelihood?
 \[ \log p( x \param\theta) = \log \sum_{z} p (x , z \param \theta)\]
-is tractable (same as posterior inference's being tractable).
-\\
-\begin{itemize}
-    \item Why not perform gradient ascent directly on log marginal likelihood? \pause
-    \item Turns out this is same as optimizing the ELBO with exact posterior inference (i.e EM). Gradients given by:
-    \[   \nabla_\theta \log p(x \param \theta)  = \E_{q(z  \param \lambda)} [\nabla_\theta \log p(x, z \param \theta)] \] 
-    where $q(z \param \lambda) = p(z \given x \param \theta)$
-\end{itemize}
+\pause
+Same as optimizing ELBO with posterior inference (i.e EM). Gradients of model parameters given by (where $q(z \given x \param \lambda) = p(z \given x \param \theta)$):
+    \[   \nabla_\theta \log p(x \param \theta)  = \E_{q(z \given x \param \lambda)} [\nabla_\theta \log p(x, z \param \theta)] \] 
+\begin{center}
+\begin{tikzpicture}
+    \draw[decorate,decoration={brace,amplitude=10pt}] (-0.3, 0) -- node[xshift=-0.75cm]{$L$} (-0.3, 3);
+    
+    \draw[red] (0, 0) rectangle (1, 3);
+    \draw[blue] (0, 3) rectangle (1, 3);
+    \draw[decorate,decoration={brace,amplitude=5pt}] (1.3, 3) -- node[xshift=1.5cm]{$\alert{\text{ELBO   }}$} (1.3, 0);
+    \draw[decorate,decoration={brace,amplitude=5pt}] (1.3, 3) -- node[xshift=1.5cm]{$\structure{\text{posterior gap}}$} (1.3, 3);    
+\end{tikzpicture}
+\end{center}
  \end{frame}
 
 
@@ -739,7 +772,7 @@ is tractable (same as posterior inference's being tractable).
 \thetitle{Connection: Gradient Ascent on Log Marginal Likelihood}
 \begin{itemize}
     \item Practically, this means we don't have to manually perform posterior inference in the E-step. Can just calculate $\log p(x \param \theta)$ and call backpropagation.
-    \item Example: in deep HMM, just implement forward  algorithm to calculate $\log p(x \param \theta)$ and backpropagate using autodiff. No need to implement backward algorithm. 
+    \item Example: in deep HMM, just implement forward  algorithm to calculate $\log p(x \param \theta)$ and backpropagate using autodiff. No need to implement backward algorithm. (Or vice versa).
 \end{itemize}
     \vspace{2mm}
     (See \cite{eisner2016}:  ``Inside-Outside and Forward-Backward Algorithms Are Just Backprop")
@@ -750,9 +783,9 @@ is tractable (same as posterior inference's being tractable).
 
 \begin{itemize}
     \item Let $p(z \given x \param \theta)$ be intractable, but suppose $p(x, z \param \theta)$
-is $\textbf{conditionally conjugate}$, meaning $p(z_t \given x, z_{-t} \param \theta)$ is in the exponential family.
-    \item Restrict the family of distributions $q$ so that it factorizes over $z_t$, i.e.\[ q(z \param \lambda^{}) = \prod_{t=1}^T q(z_t \param \lambda_{t}^{})\] (\textbf{mean field} assumption)
-    \item Further choose $q(z_t \param \lambda_{t}) $ so that it is
+is $\textbf{conditionally conjugate}$, meaning $p(z_t \given x, z_{-t} \param \theta)$ is exponential family.
+    \item Restrict the family of distributions $q$ so that it factorizes over $z_t$, i.e.\[ q(z \param \lambda^{}) = \prod_{t=1}^T q(z_t \param \lambda_{t}^{})\] (\textbf{mean field} family)
+    \item Further choose $q(z_t \param x\lambda_{t}) $ so that it is
     in the same family as 
 $p(z_t \given x, z_{-t} \param \theta)$ .
 
@@ -799,7 +832,7 @@ $p(z_t \given x, z_{-t} \param \theta)$ .
 \end{frame}
 
 \begin{frame}
-\thetitle{Strategy 3b: Conditional Conjugacy}
+\thetitle{Mean Field Family}
 \begin{itemize}
 \item Optimize ELBO via coordinate ascent, i.e. iterate
 for $\lambda_1, \dots, \lambda_T$
@@ -884,14 +917,13 @@ where
 Exact Inference: \\
 \begin{itemize}
 \item Naive: $K$ states, $L$ levels $\implies$ HMM with $K^L$ states $\implies$  $O(TK^{2L})$ 
-    \item Smarter: $O(KLK^{L+1})$
-    \item Exponential in $L$
+    \item Smarter: $O(TLK^{L+1})$
 \end{itemize}
 \air
 \pause 
 Mean Field: \\
 \begin{itemize}
-    \item Gaussian emissions: $O(TLK^2)$ 
+    \item Gaussian emissions: $O(TLK^2)$ \citep{fhmm1996}.
     \item Categorical emission: need more variational approximations, but ultimately $O(LKVT)$ \citep{nepal2013}.
 \end{itemize}
 \end{frame}

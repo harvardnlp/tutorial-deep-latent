@@ -1,4 +1,4 @@
-\documentclass{beamer}
+\documentclass[aspectratio=169]{beamer}
 % \mode<presentation>
 \setbeamertemplate{navigation symbols}{}
 \let\tempone\itemize
@@ -58,7 +58,13 @@
 \newcommand{\air}{\vspace{0.25cm}}
 \newcommand{\mair}{\vspace{-0.25cm}}
 
-\setbeamertemplate{navigation symbols}{}%remove navigation symbols
+\setbeamertemplate{navigation symbols}{
+    \usebeamerfont{footline}%
+    \usebeamercolor[fg]{footline}%
+    \hspace{1em}%
+    \insertframenumber/\inserttotalframenumber
+}
+%remove navigation symbols
 \renewcommand{\rmdefault}{crm}
 \definecolor{vermillion}{RGB}{213,94,0}
 \definecolor{orange}{RGB}{230,159,0}
@@ -137,25 +143,25 @@
 \end{frame}
 
 \section{Introduction}
-\input{slides/intro.tex}
+%\input{slides/intro.tex}
 
 \section{Models}
-\input{slides/models.tex}
+%\input{slides/models.tex}
 
-\section{Variational Inference}
+\section{Variational Objective}
 % For compiling 
-\input{slides/learning.tex}
+%\input{slides/learning.tex}
 
 
 
-\section{Optimization Strategies}
+\section{Inference Strategies}
 % For compiling 
 \input{slides/optimization.tex}
 
 %\input{slides/merge.tex}
 
 \section{Advanced Topics}
-\input{slides/advanced.tex}
+%\input{slides/advanced.tex}
 
 
 \section{Case Studies}
@@ -165,9 +171,17 @@
 \section{Conclusion}
 
 \begin{frame}
+\thetitle{}
 
     
 \end{frame}
+
+\begin{frame}
+\thetitle{}
+
+    
+\end{frame}
+
 
 \footnotesize
 \bibliography{master}

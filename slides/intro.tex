@@ -66,12 +66,12 @@
     \begin{itemize}
         \item 
 
-    How should a contemporary ML/NLP researcher reason about these two methodologies?
+    How should a contemporary ML/NLP researcher reason about latent-variables?
     \vspace{0.5cm}
 
         \item 
    
-    What unique challenges come from modeling text with latent variable models?   
+    What unique challenges come from modeling text with latent variables?   
 
     \vspace{0.5cm}
 
@@ -129,6 +129,11 @@
     \begin{itemize}
         \item Many classical latent-variable approaches.
             \air
+           
+            
+        \item Undirected graphical models such as MRFs
+            \air
+        
             
         \item Non-likelihood based models such as GANs
             \air
@@ -145,28 +150,23 @@
 
 \begin{frame}
 \thetitle{What are deep networks?}
-Deep networks are parameterized non-linear functions. 
-\air 
+Deep networks are parameterized non-linear functions; They transform input $\boldz$ into features $\boldh$ 
+using parameters $\pi$. 
 
-They transform input $\boldz$ into features $\boldh$ 
-using parameters $\theta$. 
-
-\pause
 
 \vspace{0.5cm}
-Important examples include the multilayer perceptron,
+Important examples: The multilayer perceptron,
 \begin{align*}
-\boldh = \MLP(\boldz \param \theta) = \boldV \sigma (\boldW  \boldz + \boldb) + \bolda \ \ \ \ \  \theta = \{ \boldV, \boldW,  \bolda, \boldb\},
+\boldh = \MLP(\boldz \param \pi) = \boldV \sigma (\boldW  \boldz + \boldb) + \bolda \ \ \ \ \  \pi = \{ \boldV, \boldW,  \bolda, \boldb\},
 \end{align*}
 
 \pause 
-and the recurrent neural network, which maps a sequence of inputs $\boldz_{1:T}$ into a sequence of features $\boldh_{1:T}$,
+The recurrent neural network, which maps a sequence of inputs $\boldz_{1:T}$ into a sequence of features $\boldh_{1:T}$,
 \begin{align*}
-\boldh_{t} =  \RNN(\boldh_{t-1}, \boldz_t \param \theta) = \sigma (\boldU  \boldz_t + \boldV \boldh_{t-1} + \boldb)
+\boldh_{t} =  \RNN(\boldh_{t-1}, \boldz_t \param \pi) = \sigma (\boldU  \boldz_t + \boldV \boldh_{t-1} + \boldb) \ \ \ \ \  \pi = \{ \boldV, \boldU, \boldb\}
 %\theta = \{ \boldW, \boldV, \boldU, \boldb\}$
 %\softmax (\boldW \boldh_t),
-\end{align*}
-where $ \theta = \{ \boldV, \boldU, \boldb\}$.
+\end{align*}.
 
 % \begin{align*}
 % \boldh_t = \RNN(\boldz_t, \boldh_{t-1} \param \theta) = \sigma (\boldW  \boldz_t + \boldV \boldh_{t-1} + \boldb) \ \ \\  \theta = \{ \boldV, \boldW, \boldb\}.
@@ -188,6 +188,16 @@ p(x, z \param \theta).
     \item $z$ is a collection of latent variables
     \item $\theta$ are the deterministic parameters of the model, such as the neural network parameters
 \end{itemize}
+
+\pause
+
+\begin{itemize}
+    \item Data consists of $N$ i.i.d samples,
+\end{itemize}
+
+
+                \[ p(x^{(1:N)}, z^{(1:N)} \param \theta ) = \prod_{n=1}^N p(x^{(n)} \given z^{(n)}; \theta) p(z^{(n)};\theta). \]
+
 \end{frame}
 
 \begin{frame}
@@ -196,8 +206,8 @@ p(x, z \param \theta).
     \begin{itemize}
         %\item $\Delta^{K-1}$ is the simplex over $K$ items, informally the space of distributions of $K$ discrete choices
         %\item $\softmax: \reals^t \mapsto \Delta^{k-1}$ is the mapping to the simplex defined by $\softmax(\boldh)_k \propto \exp(\boldh_k)$
-        \item A directed PGM is a directed acyclic graph representation of conditional independence structure. 
-        \item  By the chain rule, any  latent variable models $p(x, z \param \theta)$ can be represented as, 
+        \item A directed PGM shows the conditional independence structure. 
+        \item  By chain rule, latent variable model over observations can be represented as, 
         \begin{figure}
         \centering
         \begin{tikzpicture}
@@ -215,7 +225,7 @@ p(x, z \param \theta).
          %}
          
          \end{tikzpicture}
-                \[ p(x^{(1:N)}, z^{(1:N)}) = \prod_{n=1}^N p(x^{(n)} | z^{(n)}; \theta) p(z^{(n)};\theta) \]
+                \[ p(x^{(1:N)}, z^{(1:N)} \param \theta) = \prod_{n=1}^N p(x^{(n)} \given z^{(n)}; \theta) p(z^{(n)};\theta) \]
  
          \end{figure}
                  \item Specific models may factor further.
@@ -225,7 +235,9 @@ p(x, z \param \theta).
 
 \end{frame}
 
-
+\begin{frame}\thetitle{Posterior Inference}
+    For all 
+\end{frame}
 
 \begin{frame}
     \thetitle{Problem Statement: Two Views}
