@@ -189,7 +189,7 @@ Since KL is always non-negative, $L(\theta) \geq \ELBO(\theta, \lambda)$.
 
 \begin{frame}
 \thetitle{Evidence Lower Bound for Training}
-    \[ \ELBO(\theta, \lambda) = \E_{q(z)}\Big[\log \frac{p(x, z \param \theta)}{q(z\given x;\lambda)} \Big]\]
+    \[ \ELBO(\theta, \lambda; x) = \E_{q(z)}\Big[\log \frac{p(x, z \param \theta)}{q(z\given x;\lambda)} \Big]\]
 \begin{itemize}
     \item ELBO is a function of the generative model parameters, $\theta$, and the variational model parameters, $\lambda$.
 \end{itemize}

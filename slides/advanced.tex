@@ -145,7 +145,7 @@ Determinant calculation is $O(N^3)$ in general, but can be made faster depending
 \thetitle{Flows \citep{Rezende2015,Kingma2016}}
 Can still use reparameterization  to obtain gradients.  Letting $F(z) = f_{K} \circ \dots \circ f_1 (z) $,
 \begin{align*}
-\ELBO&(\theta, \lambda \param x) = \nabla_\lambda \E_{q_K(z_K \given x \param \lambda)}\Big[\log \frac{p (x,  \param \theta)}{q_K(z_K \given x \param \lambda)}\Big] \\
+\ELBO&(\theta, \lambda \param x) = \nabla_\lambda \E_{q_K(z_K \given x \param \lambda)}\Big[\log \frac{p (x, z  \param \theta)}{q_K(z_K \given x \param \lambda)}\Big] \\
 &= \nabla_\lambda \E_{q(z_0 \given x \param \lambda)}\Big[\log \frac{p (x, F(z_0) \param \theta)}{q(z_0 \given x \param \lambda)} - \log \Big| \frac{\partial F}{\partial z_0}\Big|\Big] \\
 &=  \E_{\epsilon \sim \mathcal{N}(\mathbf{0}, \mathbf{I})}\Big[\nabla_\lambda \Big( \log \frac{p (x, F(z_0) \param \theta)}{q(z_0 \given x \param \lambda)} - \log \Big| \frac{\partial F}{\partial z_0}\Big|\Big) \Big] 
 \end{align*}
@@ -171,7 +171,7 @@ Examples of $f_k(z_{k-1} \param \lambda )$
 \vspace{5mm}
 (from \cite{Rezende2015})
 \end{frame} 
-%\subsubsection{IWAE}
+\subsection{IWAE}
 \begin{frame}
 \thetitle{Importance Weighted Autoencoder (IWAE)~\citep{Burda2015}}
 \begin{itemize}
@@ -199,7 +199,6 @@ Examples of $f_k(z_{k-1} \param \lambda )$
 % 
 \end{frame}
 
-\subsection{IWAE}
 
 \begin{frame}
 \thetitle{Importance Weighted Autoencoder (IWAE)~\citep{Burda2015}}

@@ -52,7 +52,7 @@ Easy: Gradient respect to $\theta$
 \begin{align*}
 \nabla_{\theta} \ELBO(\theta, \lambda \param x) &=  \nabla_\theta \E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big] \\
 &= \E_{q}\Big[\nabla_{\theta} \log p(x^{}, z^{} \param \theta) \Big] 
-\end{align*}
+\end{align*}\pause
 \begin{itemize}
     \item Since $q$ not dependent on $\theta$, $\nabla$ moves inside expectation.
     \item Estimate with samples from $q$. Term $\log p(x, z \param \theta)$ is easy to evaluate. Single sample is often sufficient. 
@@ -111,6 +111,7 @@ Hard: Gradient respect to $\lambda$
 \nabla_{\lambda} \ELBO(\theta, \lambda \param x) &=  \nabla_\lambda \E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big] \\
 &\ne \E_{q}\Big[\nabla_{\lambda} \log p(x^{}, z^{} \param \theta) \Big] 
 \end{align*}
+\pause
 \begin{itemize}
     \item Cannot naively move $\nabla$ inside the expectation, since  $q$ depends on $\lambda$.
     \item This section: Fitting $\lambda$ in practice:
@@ -188,7 +189,8 @@ Hard: Gradient respect to $\lambda$
 
      \end{tikzpicture}    
      \end{center}
-     Let $q(z \given x \param \lambda) = \text{Cat}(\nu)$  where $\nu = \enc(x; \lambda)$  
+     Let $q(z \given x \param \lambda) = \text{Cat}(\nu)$  where $\nu = \enc(x; \lambda)$ 
+     \pause
 \begin{align*}
  \nabla_{\lambda} \ELBO(&\theta, \lambda \param x^{}) = \nabla_{\lambda} \E_{ q(z \given x^{} \param \lambda)} \Big[ \log \frac{p(x^{}, z \param \theta)}{q(z \given x^{} \param \lambda)} \Big]\\
  & =  \nabla_{\lambda} \Big( \sum_{z \in \mcZ}q(z \given x^{} \param \lambda) \log \frac{p(x^{}, z \param \theta)}{q(z \given x^{} \param \lambda)} \Big)\\
@@ -273,9 +275,9 @@ Hard: Gradient respect to $\lambda$
 \thetitle{Strategy 2: Sampling}
 \begin{align*}
     \nabla_\lambda &\ELBO(\theta, \lambda ; x) =  \nabla_\lambda \E_q \Big[\log \frac{\log p(x, z \param \theta)}{\log q (z \given x \param \lambda)} \Big]\\
-    &= \nabla_\lambda {\E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big]} -\nabla_\lambda \E_{ q}\Big[ \log q( z^{} \given x^{} \param \theta) \Big]  
+    &= {\color{blue} \nabla_\lambda {\E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big]}} - {\color{red} \nabla_\lambda \E_{ q}\Big[ \log q( z^{} \given x^{} \param \theta) \Big]}  
 \end{align*} 
-
+\pause
 \begin{itemize}
     \item How can we approximate this gradient with sampling?
     \item Naive monte-carlo fails to provide non-zero gradient.
@@ -294,10 +296,55 @@ First term. Use basic identity:
 
 Policy-gradient style training \citep{Williams1992}
 \begin{align*}
-    \nabla_\lambda & \E_{q}\Big[\log p(x^{}, z \param \theta) \Big] \\
-    &=  \sum_z  \log p(x^{}, z \param \theta) \nabla_\lambda   q(z \given x \param \lambda )  \\
-        &=  \sum_z  \log p(x^{}, z \param \theta)  q(z \given x \param \lambda )  \nabla_\lambda \log q(z \given x^{} \param \lambda)  \\
+&{\color{blue} \nabla_\lambda {\E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big]}}\\
+    &=  \sum_z  \log p(x^{}, z \param \theta) \nabla_\lambda   q(z \given x \param \lambda )  \\ 
+        &{\color{white}=  \sum_z  \log p(x^{}, z \param \theta)  q(z \given x \param \lambda )  \nabla_\lambda \log q(z \given x^{} \param \lambda) } \\ 
+    &{\color{white} = \E_{q}\Big[ \log p(x^{}, z \param \theta) \nabla_\lambda \log q(z \given x^{} \param \lambda) \Big]}
+\end{align*}
+\end{frame}
+
+\begin{frame}
+\thetitle{Strategy 2a: Sampling --- Score Function Gradient Estimator}
+First term. Use basic identity:
+
+\[\nabla \log q = \frac{\nabla q}{q} \Rightarrow \nabla q  = q \nabla \log q \]
+
+Policy-gradient style training \citep{Williams1992}
+\begin{align*}
+&{\color{blue} \nabla_\lambda {\E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big]}}\\
+    &=  \sum_z  \log p(x^{}, z \param \theta) \nabla_\lambda   q(z \given x \param \lambda )  \\ 
+        &=  \sum_z  \log p(x^{}, z \param \theta)  q(z \given x \param \lambda )  \nabla_\lambda \log q(z \given x^{} \param \lambda)  \\ 
+        &{\color{white} = \E_{q}\Big[ \log p(x^{}, z \param \theta) \nabla_\lambda \log q(z \given x^{} \param \lambda) \Big]}
+\end{align*}
+\end{frame}
+
+\begin{frame}
+\thetitle{Strategy 2a: Sampling --- Score Function Gradient Estimator}
+First term. Use basic identity:
+
+\[\nabla \log q = \frac{\nabla q}{q} \Rightarrow \nabla q  = q \nabla \log q \]
+
+Policy-gradient style training \citep{Williams1992}
+\begin{align*}
+&{\color{blue} \nabla_\lambda {\E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big]}}\\
+    &=  \sum_z  \log p(x^{}, z \param \theta) \nabla_\lambda   q(z \given x \param \lambda )  \\ 
+        &=  \sum_z  \log p(x^{}, z \param \theta)  q(z \given x \param \lambda )  \nabla_\lambda \log q(z \given x^{} \param \lambda)  \\ 
     &= \E_{q}\Big[ \log p(x^{}, z \param \theta) \nabla_\lambda \log q(z \given x^{} \param \lambda) \Big]
+\end{align*}
+\end{frame}
+
+
+\begin{frame}
+\thetitle{Strategy 2a: Sampling --- Score Function Gradient Estimator}
+Second term. Need additional identity:
+\[\sum \nabla q = \nabla \sum q = \nabla 1 = 0 \]
+\vspace{-5mm}
+\begin{align*}
+    &{\color{red} \nabla_\lambda  \E_{q}\Big[\log q(z \given x \param \lambda) \Big] }\\
+    &= \sum_{z} \nabla_\lambda \Big ( q(z \given x\param \lambda) \log q(z \given x \param \lambda)\Big) \\
+    &{\color{white} = \sum_{z}  \log q(z \given x \param \lambda) \nabla_\lambda q(z \given x \param \lambda) +  \frac{q(z \given x \param \lambda)}{q(z \given x \param \lambda)}\nabla_\lambda q(z \given x \param \lambda) }\\
+    &{\color{white}= \sum_{z}  \log q(z \given x \param \lambda) \nabla_\lambda \log q(z \given x \param \lambda) + \underbrace{\sum_z \nabla_\lambda q(z \given x \param \lambda)}_{= 0}} \\
+    &{\color{white}= \E_{q}[\log q (z \given x \param \lambda) \nabla_\lambda q (z \given x \param \lambda)]}
 \end{align*}
 \end{frame}
 
@@ -307,9 +354,37 @@ Second term. Need additional identity:
 \[\sum \nabla q = \nabla \sum q = \nabla 1 = 0 \]
 \vspace{-5mm}
 \begin{align*}
-    \nabla_\lambda & \E_{q}\Big[\log q(z \given x \param \lambda) \Big] \\
+    &{\color{red} \nabla_\lambda  \E_{q}\Big[\log q(z \given x \param \lambda) \Big] }\\
     &= \sum_{z} \nabla_\lambda \Big ( q(z \given x\param \lambda) \log q(z \given x \param \lambda)\Big) \\
-    &= \sum_{z}  \log q(z \given x \param \lambda) \nabla_\lambda q(z \given x \param \lambda) +  \frac{q(z \given x \param \lambda)}{q(z \given x \param \lambda)}\nabla_\lambda q(z \given x \param \lambda)\\
+    & = \sum_{z}  \log q(z \given x \param \lambda) \nabla_\lambda q(z \given x \param \lambda) +  \frac{q(z \given x \param \lambda)}{q(z \given x \param \lambda)}\nabla_\lambda q(z \given x \param \lambda) \\
+    &{\color{white}= \sum_{z}  \log q(z \given x \param \lambda) \nabla_\lambda \log q(z \given x \param \lambda) + \underbrace{\sum_z \nabla_\lambda q(z \given x \param \lambda)}_{= 0}} \\
+    &{\color{white}= \E_{q}[\log q (z \given x \param \lambda) \nabla_\lambda q (z \given x \param \lambda)]}
+\end{align*}
+\end{frame}
+
+\begin{frame}
+\thetitle{Strategy 2a: Sampling --- Score Function Gradient Estimator}
+Second term. Need additional identity:
+\[\sum \nabla q = \nabla \sum q = \nabla 1 = 0 \]
+\vspace{-5mm}
+\begin{align*}
+    &{\color{red} \nabla_\lambda  \E_{q}\Big[\log q(z \given x \param \lambda) \Big] }\\
+    &= \sum_{z} \nabla_\lambda \Big ( q(z \given x\param \lambda) \log q(z \given x \param \lambda)\Big) \\
+    &= \sum_{z}  \log q(z \given x \param \lambda) \nabla_\lambda q(z \given x \param \lambda) +  \frac{q(z \given x \param \lambda)}{q(z \given x \param \lambda)}\nabla_\lambda q(z \given x \param \lambda) \\
+    &= \sum_{z}  \log q(z \given x \param \lambda) \nabla_\lambda \log q(z \given x \param \lambda) + \underbrace{\sum_z \nabla_\lambda q(z \given x \param \lambda)}_{= 0} \\
+    &{\color{white}= \E_{q}[\log q (z \given x \param \lambda) \nabla_\lambda q (z \given x \param \lambda)]}
+\end{align*}
+\end{frame}
+
+\begin{frame}
+\thetitle{Strategy 2a: Sampling --- Score Function Gradient Estimator}
+Second term. Need additional identity:
+\[\sum \nabla q = \nabla \sum q = \nabla 1 = 0 \]
+\vspace{-5mm}
+\begin{align*}
+    &{\color{red} \nabla_\lambda  \E_{q}\Big[\log q(z \given x \param \lambda) \Big] }\\
+    &= \sum_{z} \nabla_\lambda \Big ( q(z \given x\param \lambda) \log q(z \given x \param \lambda)\Big) \\
+    & = \sum_{z}  \log q(z \given x \param \lambda) \nabla_\lambda q(z \given x \param \lambda) +  \frac{q(z \given x \param \lambda)}{q(z \given x \param \lambda)}\nabla_\lambda q(z \given x \param \lambda) \\
     &= \sum_{z}  \log q(z \given x \param \lambda) \nabla_\lambda \log q(z \given x \param \lambda) + \underbrace{\sum_z \nabla_\lambda q(z \given x \param \lambda)}_{= 0} \\
     &= \E_{q}[\log q (z \given x \param \lambda) \nabla_\lambda q (z \given x \param \lambda)]
 \end{align*}
@@ -342,7 +417,7 @@ by moving along the gradient $\nabla_\lambda \log q(z^{(j)} \given x \param \lam
 \begin{itemize}
     \item Essentially reinforcement learning with reward $R_{\theta, \lambda}(z)$
     \item Unbiased estimator for the gradient, but high variance.
-    \item In practice, need variance-reducing \textbf{control variate} $B$.
+    \item In practice, need variance-reducing \textbf{control variate} $B$. (More on this later).
 \end{itemize}    
 %     \item Can be estimated with another neural net regressed on the ``reward", e.g.
 %     \[ \Big(B(x^{} \param \psi) -  \frac{1}{J}\sum_{j=1}^J \log \frac{p(x^{}, z^{(j)} \param \theta)}{q(z^{(j)} \given x^{} \param \lambda)}\Big)^2 \]
@@ -382,7 +457,8 @@ by moving along the gradient $\nabla_\lambda \log q(z^{(j)} \given x \param \lam
 
      \end{tikzpicture}    
      \end{center}
-     Let $q(z \given x \param \lambda) = \text{Cat}(\nu)$  where $\nu = \enc(x; \lambda)$ and $z^{(1)}, \dots, z^{(J)} \sim q(z\given x; \lambda)$  
+     Let $q(z \given x \param \lambda) = \text{Cat}(\nu)$  where $\nu = \enc(x; \lambda)$ \\ \pause $z^{(1)}, \dots, z^{(J)} \sim q(z\given x; \lambda)$  
+     
 \begin{align*}
  \nabla_{\lambda} \ELBO(&\theta, \lambda \param x^{}) = \E_q \Big[\log \frac{p(x, z \param \theta)}{q(z \given x \param \lambda)} \nabla_\lambda \log q ( z \given x \param \lambda ) \Big] \\
   & \approx   \frac{1}{J}\sum_{j=1}^{J} \nu_{z^{(j)}} \log \frac{p(x^{}, z^{(j)} \param \theta)}{\nu_{z^{(j)}}}\nabla_{\lambda} \log \nu_{z^{(j)}} 
@@ -527,7 +603,8 @@ about the structure of the objective function.
 In certain choices for $p$ and $q$, we can compute 
 \[ \argmax_\lambda \ELBO(\theta, \lambda; x^{}) \]
 (exactly or approximately) without gradient-based methods. \\
-\air
+\air 
+\pause
 Recall that 
 \begin{align*}
      \argmax_{\lambda^{}} \ELBO(\theta, \lambda^{}; x^{}) =   \argmin_{\lambda^{}}  \KL[q(z  \param \lambda^{}) \Vert p(z \given x^{} \param \theta)] 
@@ -537,7 +614,8 @@ Recall that
 
 \begin{frame}
 \thetitle{Strategy 3a: Conjugacy --- Tractable Posterior Inference}
-Suppose we can tractably calculate $p(z \given x^{} \param \theta)$.
+Suppose we can tractably calculate $p(z \given x^{} \param \theta)$. \\
+\pause
 Then 
 \[  \KL[q(z \param \lambda^{}) \Vert p(z \given x^{} \param \theta)]  \]
 is minimized when 
@@ -584,6 +662,7 @@ is minimized when
      \end{tikzpicture}    
      \end{center}
     \begin{align*}
+    \pause
     p(z  \given x ; \theta) &= \text{Dir}(z; \alpha + \sum_{t=1}^T x^{}_t) \Rightarrow 
     %\argmin_{\lambda^{}} & \KL[q(z; \lambda^{}) || p(z \given x^{})] \\ 
     \quad \quad \lambda^{} =  \alpha + \sum_{t=1}^T x^{}_t \\ 
@@ -635,6 +714,7 @@ is minimized when
 \thetitle{Strategy 3a: Conjugacy --- Tractable Posterior Inference}
 Run forward/backward to calculate marginals,
 \[ p(z_t, z_{t+1} \given x^{} \param \theta) \]
+\pause
 $\lambda^{} \in \reals^{TK^2}$ is given by a vector which stores these edge marginals, since they are enough to calculate 
 \[  q(z \param \lambda^{}) = p(z \given x^{} \param \theta) \] 
 (i.e. the exact posterior) over any sequence $z$.
@@ -642,12 +722,12 @@ $\lambda^{} \in \reals^{TK^2}$ is given by a vector which stores these edge marg
 
 \begin{frame}
 \thetitle{Connection: Gradient Ascent on Log Marginal Likelihood}
-Suppose 
+Suppose directly marginalizing 
 \[ \log p( x \param\theta) = \log \sum_{z} p (x , z \param \theta)\]
-is tractable.
+is tractable (same as posterior inference's being tractable).
 \\
 \begin{itemize}
-    \item Why not perform gradient ascent directly on log marginal likelihood?
+    \item Why not perform gradient ascent directly on log marginal likelihood? \pause
     \item Turns out this is same as optimizing the ELBO with exact posterior inference (i.e EM). Gradients given by:
     \[   \nabla_\theta \log p(x \param \theta)  = \E_{q(z  \param \lambda)} [\nabla_\theta \log p(x, z \param \theta)] \] 
     where $q(z \param \lambda) = p(z \given x \param \theta)$
@@ -669,7 +749,7 @@ is tractable.
 \thetitle{Strategy 3b: Conditional Conjugacy}
 
 \begin{itemize}
-    \item Suppose $p(z \given x \param \theta)$ is intractable, but $p(x, z \param \theta)$
+    \item Let $p(z \given x \param \theta)$ be intractable, but suppose $p(x, z \param \theta)$
 is $\textbf{conditionally conjugate}$, meaning $p(z_t \given x, z_{-t} \param \theta)$ is in the exponential family.
     \item Restrict the family of distributions $q$ so that it factorizes over $z_t$, i.e.\[ q(z \param \lambda^{}) = \prod_{t=1}^T q(z_t \param \lambda_{t}^{})\] (\textbf{mean field} assumption)
     \item Further choose $q(z_t \param \lambda_{t}) $ so that it is
@@ -808,10 +888,10 @@ Exact Inference: \\
     \item Exponential in $L$
 \end{itemize}
 \air
-
+\pause 
 Mean Field: \\
 \begin{itemize}
-    \item Gaussian emissions: $O(TLK^2)$
+    \item Gaussian emissions: $O(TLK^2)$ 
     \item Categorical emission: need more variational approximations, but ultimately $O(LKVT)$ \citep{nepal2013}.
 \end{itemize}
 \end{frame}
