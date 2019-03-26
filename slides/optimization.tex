@@ -289,7 +289,7 @@ Hard: Gradient respect to $\lambda$
 \begin{frame}
 \thetitle{Strategy 2: Sampling}
 \begin{align*}
-    \nabla_\lambda &\ELBO(\theta, \lambda ; x) =  \nabla_\lambda \E_q \Big[\log \frac{\log p(x, z \param \theta)}{\log q (z \given x \param \lambda)} \Big]\\
+    \nabla_\lambda &\ELBO(\theta, \lambda ; x) =  \nabla_\lambda \E_q \Big[\log \frac{ p(x, z \param \theta)}{ q (z \given x \param \lambda)} \Big]\\
     &= {\color{blue} \nabla_\lambda {\E_{ q}\Big[ \log p(x^{}, z^{} \param \theta) \Big]}} - {\color{red} \nabla_\lambda \E_{ q}\Big[ \log q( z^{} \given x^{} \param \theta) \Big]}  
 \end{align*} 
 \pause
